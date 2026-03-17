@@ -24,6 +24,12 @@ export class OrdersController {
         return this.ordersService.findAll();
     }
 
+    @Get('metrics/cycle-time')
+    @ApiOperation({ summary: 'Obter média de tempo de ciclo (Pedido -> Envio)' })
+    getMetrics() {
+        return this.ordersService.getCycleTimeMetrics();
+    }
+
     @Get(':id')
     @ApiOperation({ summary: 'Buscar pedido por ID (UUID) com histórico e itens' })
     findOne(@Param('id') id: string) {

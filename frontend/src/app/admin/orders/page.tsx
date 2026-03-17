@@ -46,7 +46,12 @@ export default function AdminOrdersPage() {
         }
     };
 
-    if (loading) return <div className="skeleton-title" style={{ width: '200px' }}></div>;
+    if (loading) return (
+        <div>
+            <div className="skeleton-title" style={{ width: '300px', marginBottom: '1.5rem' }}></div>
+            <div className="order-card skeleton" style={{ height: '400px' }}></div>
+        </div>
+    );
 
     return (
         <div>
@@ -59,7 +64,7 @@ export default function AdminOrdersPage() {
                             <th>Nº Pedido</th>
                             <th>Data</th>
                             <th>Status Atual</th>
-                            <th className="align-right">Qtd Produtos</th>
+                            <th className="align-right">Total Pedido</th>
                             <th className="align-right">Custo de Frete</th>
                             <th className="align-right">Total Transação</th>
                             <th className="align-right">Mover Status</th>
@@ -72,8 +77,10 @@ export default function AdminOrdersPage() {
                                 <td>{new Date(o.createdAt).toLocaleDateString('pt-BR')}</td>
                                 <td>
                                     <span className="badge" style={{
-                                        background: o.status === 'SHIPPED' || o.status === 'DELIVERED' ? '#10b981' :
-                                            o.status === 'PRINTING' ? '#3b82f6' : 'var(--primary-color)'
+                                        background: o.status === 'DELIVERED' || o.status === 'READY' ? '#10b981' :
+                                            o.status === 'PRINTING' ? '#3b82f6' : 
+                                            o.status === 'PENDING' ? '#f59e0b' : 
+                                            o.status === 'CANCELLED' ? '#ef4444' : 'var(--primary-color)'
                                     }}>
                                         {o.status}
                                     </span>

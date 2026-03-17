@@ -159,6 +159,7 @@ export class OrdersService {
         const updates: any = { status: newStatus };
 
         // Atualiza KPIs logísticos baseados no status
+        if (newStatus === OrderStatus.PRINTING) updates.printingStartedAt = new Date();
         if (newStatus === OrderStatus.SHIPPED) updates.shippedAt = new Date();
         if (newStatus === OrderStatus.DELIVERED) updates.deliveredAt = new Date();
         if (newStatus === OrderStatus.CANCELLED) updates.cancelledAt = new Date();
@@ -180,5 +181,28 @@ export class OrdersService {
 
             return updatedOrder;
         });
+    }
+
+    async getCycleTimeMetrics() {
+        const orders = await this.prisma.order.findMany({
+            where: {
+                status: { in: [OrderStatus.SHIPPED, OrderStatus.DELIVERED] },
+                shippedAt: { not: null },
+            },
+            select: {
+                orderedAt: true,
+                shippedAt: true,
+            }
+        });
+
+        if (orders.length === 0) return { averageHours: 0 };
+
+        const totalDiffMs = orders.reduce((acc, order) => {
+            const diff = order.shippedAt.getTime() - order.orderedAt.getTime();
+            return acc + diff;
+        }, 0);
+
+        const averageHours = (totalDiffMs / (1000 * 60 * 60)) / orders.length;
+        return { averageHours: parseFloat(averageHours.toFixed(2)) };
     }
 }

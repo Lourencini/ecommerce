@@ -139,10 +139,11 @@ model Order {
   shippingService String?     @map("shipping_service") @db.VarChar(100)
   trackingCode    String?     @map("tracking_code") @db.VarChar(100)
   // KPI: Cycle Time — tempo entre pedido e envio
-  orderedAt       DateTime    @default(now()) @map("ordered_at")
-  shippedAt       DateTime?   @map("shipped_at")
-  deliveredAt     DateTime?   @map("delivered_at")
-  cancelledAt     DateTime?   @map("cancelled_at")
+  orderedAt         DateTime    @default(now()) @map("ordered_at")
+  printingStartedAt DateTime?   @map("printing_started_at")
+  shippedAt         DateTime?   @map("shipped_at")
+  deliveredAt       DateTime?   @map("delivered_at")
+  cancelledAt       DateTime?   @map("cancelled_at")
   notes           String?     @db.Text
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")

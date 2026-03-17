@@ -152,55 +152,62 @@ async function main() {
     // ── Pedido de Teste ─────────────────────────────────────
     const address = customer.addresses[0];
 
-    const order = await prisma.order.create({
-        data: {
-            orderNumber: '#2024-0001',
-            customerId: customer.id,
-            addressId: address.id,
-            status: OrderStatus.CONFIRMED,
-            totalProducts: new Decimal('121.9000'),
-            totalShipping: new Decimal('18.5000'),
-            discount: new Decimal('0.0000'),
-            total: new Decimal('140.4000'),
-            shippingService: 'PAC',
-            items: {
-                create: [
-                    {
-                        productId: product1.id,
-                        quantity: 1,
-                        unitPrice: new Decimal('89.9000'),
-                        totalPrice: new Decimal('89.9000'),
-                        productName: product1.name,
-                        productSku: product1.sku,
-                    },
-                    {
-                        productId: product3.id,
-                        quantity: 1,
-                        unitPrice: new Decimal('32.0000'),
-                        totalPrice: new Decimal('32.0000'),
-                        productName: product3.name,
-                        productSku: product3.sku,
-                    },
-                ],
-            },
-            statusHistory: {
-                create: [
-                    {
-                        fromStatus: null,
-                        toStatus: OrderStatus.PENDING,
-                        note: 'Pedido criado',
-                    },
-                    {
-                        fromStatus: OrderStatus.PENDING,
-                        toStatus: OrderStatus.CONFIRMED,
-                        note: 'Pagamento confirmado via Pix',
-                    },
-                ],
-            },
-        },
+    const existingOrder = await prisma.order.findUnique({
+        where: { orderNumber: '#2024-0001' },
     });
 
-    console.log('✅ Pedido de teste criado:', order.orderNumber);
+    if (!existingOrder) {
+        const order = await prisma.order.create({
+            data: {
+                orderNumber: '#2024-0001',
+                customerId: customer.id,
+                addressId: address.id,
+                status: OrderStatus.CONFIRMED,
+                totalProducts: new Decimal('121.9000'),
+                totalShipping: new Decimal('18.5000'),
+                discount: new Decimal('0.0000'),
+                total: new Decimal('140.4000'),
+                shippingService: 'PAC',
+                items: {
+                    create: [
+                        {
+                            productId: product1.id,
+                            quantity: 1,
+                            unitPrice: new Decimal('89.9000'),
+                            totalPrice: new Decimal('89.9000'),
+                            productName: product1.name,
+                            productSku: product1.sku,
+                        },
+                        {
+                            productId: product3.id,
+                            quantity: 1,
+                            unitPrice: new Decimal('32.0000'),
+                            totalPrice: new Decimal('32.0000'),
+                            productName: product3.name,
+                            productSku: product3.sku,
+                        },
+                    ],
+                },
+                statusHistory: {
+                    create: [
+                        {
+                            fromStatus: null,
+                            toStatus: OrderStatus.PENDING,
+                            note: 'Pedido criado',
+                        },
+                        {
+                            fromStatus: OrderStatus.PENDING,
+                            toStatus: OrderStatus.CONFIRMED,
+                            note: 'Pagamento confirmado via Pix',
+                        },
+                    ],
+                },
+            },
+        });
+        console.log('✅ Pedido de teste criado:', order.orderNumber);
+    } else {
+        console.log('🟡 Pedido de teste já existe, pulando...');
+    }
     console.log('\n🎉 Seed concluído com sucesso!');
     console.log('   Produtos:', 3);
     console.log('   Clientes:', 1);

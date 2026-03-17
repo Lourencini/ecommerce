@@ -1,4 +1,4 @@
-import { CreateProductDto } from '../../products/dto/create-product.dto';
+import { CreateProductDto, MaterialType } from '../../products/dto/create-product.dto';
 
 /**
  * ProductBuilder
@@ -13,16 +13,17 @@ export class ProductBuilder {
             name: 'Vaso Abstrato 3D Premium',
             description: 'Vaso impresso em alta resolução (0.1mm) ideal para suculentas.',
             sku: `VS-PREMIUM-${Math.floor(Math.random() * 10000)}`,
-            price: 149.90, // Decimal compatibility
+            price: 149.90,
             compareAtPrice: 199.90,
             stockQuantity: 10,
-            categoryId: 1, // uuid filler
+            categoryId: 1,
             lengthCm: 15,
             widthCm: 15,
             heightCm: 25,
             weightGrams: 300,
             filamentType: 'PLA Silk',
             filamentColor: 'Cobre',
+            material: MaterialType.PLA,
             isActive: true,
             imageUrls: ['https://example.com/vaso-cobre-1.jpg'],
         };
@@ -47,6 +48,11 @@ export class ProductBuilder {
         this.product.lengthCm = lengthCm;
         this.product.widthCm = widthCm;
         this.product.heightCm = heightCm;
+        return this;
+    }
+
+    withMaterial(material: MaterialType): ProductBuilder {
+        this.product.material = material;
         return this;
     }
 

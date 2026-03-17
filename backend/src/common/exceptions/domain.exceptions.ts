@@ -26,6 +26,15 @@ export class ProductSkuConflictException extends HttpException {
     }
 }
 
+export class ProductNameConflictException extends HttpException {
+    constructor(name: string) {
+        super(
+            { message: `Já existe um produto com o nome "${name}".` },
+            HttpStatus.CONFLICT,
+        );
+    }
+}
+
 export class OrderNotFoundException extends HttpException {
     constructor(id: string) {
         super(

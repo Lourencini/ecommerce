@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { API_URL } from '@/lib/api';
 
 export default function AdminProductsPage() {
@@ -45,7 +46,7 @@ export default function AdminProductsPage() {
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                 <h2>Gerenciar Produtos</h2>
-                <button className="btn-primary" onClick={() => alert('Criar produto não implementado no mock.')}>+ Novo Produto</button>
+                <Link href="/admin/products/new" className="btn-primary" style={{ textDecoration: 'none' }}>+ Novo Produto</Link>
             </div>
 
             <div style={{ background: 'var(--surface-color)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', overflow: 'hidden' }}>

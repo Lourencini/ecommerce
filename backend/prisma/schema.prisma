@@ -58,6 +58,7 @@ model Product {
   isActive         Boolean  @default(true) @map("is_active")
   isFeatured       Boolean  @default(false) @map("is_featured")
   // Material de impressão 3D
+  material         String?  @db.VarChar(50)
   filamentType     String?  @map("filament_type") @db.VarChar(50)
   filamentColor    String?  @map("filament_color") @db.VarChar(50)
   printHours       Decimal? @map("print_hours") @db.Decimal(6, 2)

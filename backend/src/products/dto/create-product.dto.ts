@@ -12,7 +12,16 @@ import {
     IsInt,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
+
+export enum MaterialType {
+    PLA = 'PLA',
+    ABS = 'ABS',
+    PETG = 'PETG',
+    RESIN = 'RESIN',
+    TPU = 'TPU',
+    NYLON = 'NYLON',
+}
 
 export class CreateProductDto {
     @ApiProperty({ example: 'MIN-DRG-001' })
@@ -42,6 +51,12 @@ export class CreateProductDto {
     })
     @IsNumber({ maxDecimalPlaces: 4 })
     @IsPositive()
+    @Transform(({ value }) => {
+        if (typeof value === 'string') {
+            return parseFloat(value.replace('R$', '').replace(',', '.').trim());
+        }
+        return value;
+    })
     @Type(() => Number)
     price: number;
 
@@ -104,6 +119,11 @@ export class CreateProductDto {
     @IsString()
     @MaxLength(50)
     filamentColor?: string;
+
+    @ApiProperty({ enum: MaterialType, example: MaterialType.PLA })
+    @IsNotEmpty()
+    @IsString()
+    material: MaterialType;
 
     @ApiPropertyOptional({ example: 4.5 })
     @IsOptional()

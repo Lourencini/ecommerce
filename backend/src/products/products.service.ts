@@ -6,6 +6,7 @@ import { ProductQueryDto } from './dto/product-query.dto';
 import {
     ProductNotFoundException,
     ProductSkuConflictException,
+    ProductNameConflictException,
 } from '../common/exceptions/domain.exceptions';
 import { Prisma } from '@prisma/client';
 
@@ -16,14 +17,25 @@ export class ProductsService {
     constructor(private prisma: PrismaService) { }
 
     async create(createProductDto: CreateProductDto) {
+        // Verifica duplicidade por nome
+        const existingByName = await this.prisma.product.findFirst({
+            where: { name: createProductDto.name },
+        });
+
+        if (existingByName) {
+            throw new ProductNameConflictException(createProductDto.name);
+        }
+
         try {
-            return await this.prisma.product.create({
+            const product = await this.prisma.product.create({
                 data: {
                     ...createProductDto,
                     priceInCents: createProductDto.price,
                     compareAtPrice: createProductDto.compareAtPrice,
                 },
             });
+
+            return { data: product };
         } catch (error) {
             if (
                 error instanceof Prisma.PrismaClientKnownRequestError &&

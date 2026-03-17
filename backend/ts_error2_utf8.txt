@@ -1,0 +1,5 @@
+﻿src/orders/orders.service.ts(88,17): error TS2322: Type '{ orderNumber: string; customerId: string; addressId: number; status: "PENDING"; totalProducts: Decimal; totalShipping: Decimal; total: Decimal; shippingService: string; items: { ...; }; statusHistory: { ...; }; }' is not assignable to type '(Without<OrderCreateInput, OrderUncheckedCreateInput> & OrderUncheckedCreateInput) | (Without<...> & OrderCreateInput)'.
+  Type '{ orderNumber: string; customerId: string; addressId: number; status: "PENDING"; totalProducts: Decimal; totalShipping: Decimal; total: Decimal; shippingService: string; items: { ...; }; statusHistory: { ...; }; }' is not assignable to type 'Without<OrderUncheckedCreateInput, OrderCreateInput> & OrderCreateInput'.
+    Type '{ orderNumber: string; customerId: string; addressId: number; status: "PENDING"; totalProducts: Decimal; totalShipping: Decimal; total: Decimal; shippingService: string; items: { ...; }; statusHistory: { ...; }; }' is not assignable to type 'Without<OrderUncheckedCreateInput, OrderCreateInput>'.
+      Types of property 'customerId' are incompatible.
+        Type 'string' is not assignable to type 'never'.

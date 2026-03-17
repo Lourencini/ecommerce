@@ -67,7 +67,7 @@ export class OrdersService {
                     productId: product.id,
                     quantity: itemDto.quantity,
                     unitPrice,
-                    subtotal: itemSubtotal,
+                    totalPrice: itemSubtotal,
                     productName: product.name,
                     productSku: product.sku,
                 });
@@ -79,8 +79,8 @@ export class OrdersService {
                 });
             }
 
-            const shippingCost = new Decimal(quote.price as any);
-            const total = subtotal.plus(shippingCost);
+            const totalShipping = new Decimal(quote.price as any);
+            const total = subtotal.plus(totalShipping);
             const orderNumber = `#${new Date().getFullYear()}-${Math.floor(Math.random() * 100000).toString().padStart(5, '0')}`;
 
             // 4. Criar Pedido com Audit Trail (Status History)
@@ -90,8 +90,8 @@ export class OrdersService {
                     customerId: customer.id,
                     addressId: address?.id,
                     status: OrderStatus.PENDING,
-                    subtotal,
-                    shippingCost,
+                    totalProducts: subtotal,
+                    totalShipping,
                     total,
                     shippingService: quote.carrier + ' - ' + quote.serviceName,
                     items: { create: orderItems },
@@ -143,8 +143,8 @@ export class OrdersService {
         const order = await this.findOne(id);
         const validTransitions: Record<OrderStatus, OrderStatus[]> = {
             PENDING: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
-            CONFIRMED: [OrderStatus.IN_PRODUCTION, OrderStatus.CANCELLED],
-            IN_PRODUCTION: [OrderStatus.READY, OrderStatus.CANCELLED],
+            CONFIRMED: [OrderStatus.PRINTING, OrderStatus.CANCELLED],
+            PRINTING: [OrderStatus.READY, OrderStatus.CANCELLED],
             READY: [OrderStatus.SHIPPED, OrderStatus.CANCELLED],
             SHIPPED: [OrderStatus.DELIVERED],
             DELIVERED: [OrderStatus.REFUNDED],

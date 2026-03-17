@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CreateShippingQuoteDto } from './dto/create-shipping-quote.dto';
-import { CalculateShippingDto } from './dto/calculate-shipping.dto';
+import { CalculateShippingDto, ShippingProductItemDto } from './dto/calculate-shipping.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import {
     InvalidZipCodeException,
@@ -16,63 +16,107 @@ export class ShippingService {
 
     /**
      * Simula a API da transportadora (Correios/Melhor Envio)
+     * Calcula peso real vs peso volumétrico com precisão Decimal
      */
     async calculate(dto: CalculateShippingDto) {
-        this.logger.log(`Calculando frete para o CEP: ${dto.zipCodeDest}`);
+        this.logger.log(`Calculando frete volumétrico para o CEP: ${dto.zipCodeDest}`);
 
-        // Validação de regra de negócio (simulando API externa retornando erro)
         if (dto.zipCodeDest === '00000000') {
             throw new InvalidZipCodeException(dto.zipCodeDest);
         }
 
-        if (dto.weightGrams > 30000) {
-            // Regra de negócio: limite de 30kg comum em transportadoras
-            throw new ShippingCalculationException('Peso excede o limite de 30kg.');
+        // 1. Calcular totais da caixa usando Decimal estritamente
+        let totalWeightGrams = new Decimal(0);
+        let totalVolumeCm3 = new Decimal(0);
+
+        // Dimensões estimadas da caixa de envio
+        let boxLengthCm = new Decimal(0);
+        let boxWidthCm = new Decimal(0);
+        let boxHeightCm = new Decimal(0);
+
+        for (const item of dto.products) {
+            const qty = new Decimal(item.quantity);
+
+            // Soma pesos reais
+            const itemWeight = new Decimal(item.weightGrams).times(qty);
+            totalWeightGrams = totalWeightGrams.plus(itemWeight);
+
+            // Soma volume (C * L * A * Qtd)
+            const l = new Decimal(item.lengthCm as number);
+            const w = new Decimal(item.widthCm as number);
+            const h = new Decimal(item.heightCm as number);
+            const itemVolume = l.times(w).times(h).times(qty);
+            totalVolumeCm3 = totalVolumeCm3.plus(itemVolume);
+
+            // Heurística simples de caixa de envio (o maior lado domina, empilha a altura)
+            if (l.greaterThan(boxLengthCm)) boxLengthCm = l;
+            if (w.greaterThan(boxWidthCm)) boxWidthCm = w;
+            boxHeightCm = boxHeightCm.plus(h.times(qty));
         }
 
-        // Simulando delay de rede da API externa
+        // 2. Peso Volumétrico (Fator Correios = 6000)
+        // Formula: (C * L * A) / 6000 = KG Volumétrico
+        const volumetricWeightKg = totalVolumeCm3.dividedBy(6000);
+        const realWeightKg = totalWeightGrams.dividedBy(1000);
+
+        // O peso cobrado é sempre o maior entre o real e o volumétrico
+        const chargeableWeightKg = Decimal.max(realWeightKg, volumetricWeightKg);
+
+        if (chargeableWeightKg.greaterThan(30)) {
+            throw new ShippingCalculationException('Peso taxável excede o limite de 30kg da transportadora.');
+        }
+
+        // 3. Simulação de API externa
         await new Promise((resolve) => setTimeout(resolve, 800));
 
-        // Cálculo fake baseado no estado (dígito inicial do CEP)
+        // Cálculo fake baseado no formato decimal exato
         const destRegion = parseInt(dto.zipCodeDest[0], 10);
-        const originRegion = 0; // SP (CEP 01310100)
+        const distanceFactor = new Decimal(Math.abs(destRegion - 0) || 1);
 
-        const distanceFactor = Math.abs(destRegion - originRegion) || 1;
         const basePrice = new Decimal(15.0);
-        const weightFactor = new Decimal(dto.weightGrams).dividedBy(1000).times(5);
+        const weightTax = chargeableWeightKg.times(5.5); // R$ 5,50 por KG taxável
 
-        // PAC
+        // PAC e SEDEX math operations with strictly Decimal to avoid float issues
         const pacPrice = basePrice
-            .plus(weightFactor)
-            .times(distanceFactor * 1.2)
+            .plus(weightTax)
+            .times(distanceFactor.times('1.2'))
             .toDecimalPlaces(4);
-        const pacDeadline = 5 + distanceFactor * 2;
 
-        // Sedex
         const sedexPrice = basePrice
-            .plus(weightFactor)
-            .times(distanceFactor * 2.5)
+            .plus(weightTax)
+            .times(distanceFactor.times('2.5'))
             .toDecimalPlaces(4);
-        const sedexDeadline = 2 + distanceFactor;
+
+        const pacDeadline = 5 + distanceFactor.toNumber() * 2;
+        const sedexDeadline = 2 + distanceFactor.toNumber();
 
         return [
             {
                 serviceName: 'PAC',
                 carrier: 'Correios',
-                price: Number(pacPrice),
+                price: pacPrice.toNumber(), // Retornado como number pro DTO, salvo como Decimal no banco
                 deadlineDays: pacDeadline,
+                metadata: {
+                    realWeightKg: realWeightKg.toDecimalPlaces(3).toNumber(),
+                    volumetricWeightKg: volumetricWeightKg.toDecimalPlaces(3).toNumber(),
+                    chargeableWeightKg: chargeableWeightKg.toDecimalPlaces(3).toNumber(),
+                }
             },
             {
                 serviceName: 'SEDEX',
                 carrier: 'Correios',
-                price: Number(sedexPrice),
+                price: sedexPrice.toNumber(),
                 deadlineDays: sedexDeadline,
+                metadata: {
+                    realWeightKg: realWeightKg.toDecimalPlaces(3).toNumber(),
+                    volumetricWeightKg: volumetricWeightKg.toDecimalPlaces(3).toNumber(),
+                    chargeableWeightKg: chargeableWeightKg.toDecimalPlaces(3).toNumber(),
+                }
             },
         ];
     }
 
     async saveQuote(dto: CreateShippingQuoteDto) {
-        // Salva a cotação no banco com validade de 48h
         const expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + 48);
 
@@ -84,7 +128,7 @@ export class ShippingService {
                 lengthCm: dto.lengthCm,
                 widthCm: dto.widthCm,
                 heightCm: dto.heightCm,
-                price: dto.price,
+                price: dto.price, // Salvo no banco como Decimal(19,4)
                 deadline: dto.deadlineDays,
                 serviceName: dto.serviceName,
                 carrier: dto.carrier,
@@ -98,13 +142,8 @@ export class ShippingService {
             where: { id: quoteId },
         });
 
-        if (!quote) {
-            throw new ShippingCalculationException('Cotação não encontrada.');
-        }
-
-        if (new Date() > quote.expiresAt) {
-            throw new ShippingCalculationException('Cotação expirada.');
-        }
+        if (!quote) throw new ShippingCalculationException('Cotação não encontrada.');
+        if (new Date() > quote.expiresAt) throw new ShippingCalculationException('Cotação expirada.');
 
         return quote;
     }

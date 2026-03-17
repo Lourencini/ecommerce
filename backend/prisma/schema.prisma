@@ -131,8 +131,8 @@ model Order {
   address         Address?    @relation(fields: [addressId], references: [id])
   status          OrderStatus @default(PENDING)
   // Valores com alta precisão (Decimal 19,4)
-  subtotal        Decimal     @db.Decimal(19, 4)
-  shippingCost    Decimal     @map("shipping_cost") @db.Decimal(19, 4)
+  totalShipping   Decimal     @map("total_shipping") @db.Decimal(19, 4)
+  totalProducts   Decimal     @map("total_products") @db.Decimal(19, 4)
   discount        Decimal     @default(0) @db.Decimal(19, 4)
   total           Decimal     @db.Decimal(19, 4)
   // Dados de frete
@@ -169,7 +169,7 @@ model OrderItem {
   quantity    Int
   // Snapshot do preço no momento da compra
   unitPrice   Decimal  @map("unit_price") @db.Decimal(19, 4)
-  subtotal    Decimal  @db.Decimal(19, 4)
+  totalPrice  Decimal  @map("total_price") @db.Decimal(19, 4)
   // Snapshot do nome e SKU para histórico
   productName String   @map("product_name") @db.VarChar(255)
   productSku  String   @map("product_sku") @db.VarChar(50)
@@ -225,14 +225,14 @@ model ShippingQuote {
 // ENUMS
 // ============================================================
 enum OrderStatus {
-  PENDING       // Aguardando pagamento
-  CONFIRMED     // Pagamento confirmado
-  IN_PRODUCTION // Em impressão 3D
-  READY         // Pronto para envio
-  SHIPPED       // Enviado (shippedAt preenchido — KPI)
-  DELIVERED     // Entregue (deliveredAt preenchido)
-  CANCELLED     // Cancelado (cancelledAt preenchido)
-  REFUNDED      // Reembolsado
+  PENDING
+  CONFIRMED
+  PRINTING
+  READY
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
 
   @@map("order_status")
 }

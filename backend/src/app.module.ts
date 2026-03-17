@@ -2,9 +2,9 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 // Módulos do Step 2 — adicionados progressivamente
-// import { ProductsModule } from './products/products.module';
-// import { OrdersModule } from './orders/orders.module';
-// import { ShippingModule } from './shipping/shipping.module';
+import { ProductsModule } from './products/products.module';
+import { OrdersModule } from './orders/orders.module';
+import { ShippingModule } from './shipping/shipping.module';
 
 @Module({
     imports: [
@@ -13,9 +13,9 @@ import { PrismaModule } from './prisma/prisma.module';
             envFilePath: '.env',
         }),
         PrismaModule,
-        // ProductsModule,
-        // OrdersModule,
-        // ShippingModule,
+        ProductsModule,
+        OrdersModule,
+        ShippingModule,
     ],
 })
 export class AppModule { }

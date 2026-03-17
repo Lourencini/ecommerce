@@ -7,11 +7,15 @@
     "frontend"
   ],
   "scripts": {
-    "dev:backend": "npm run dev --workspace=backend",
+    "dev:backend": "npm run start:dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",
+    "start:all": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "db:generate": "npm run prisma:generate --workspace=backend",
     "db:migrate": "npm run prisma:migrate --workspace=backend",
     "db:seed": "npm run prisma:seed --workspace=backend",
     "db:studio": "npx prisma studio --schema=backend/prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }

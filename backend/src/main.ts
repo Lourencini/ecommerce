@@ -36,11 +36,12 @@ async function bootstrap() {
         .setTitle('E-commerce 3D Print — API')
         .setDescription('API do sistema de e-commerce para impressão 3D')
         .setVersion('1.0')
+        .setContact('E-3D Print Team', 'https://e3dprint.com', 'engineering@e3dprint.com')
         .addTag('products', 'Gerenciamento de produtos')
         .addTag('orders', 'Gerenciamento de pedidos')
         .addTag('shipping', 'Cálculo e cotação de frete')
         .addTag('customers', 'Gerenciamento de clientes')
-        .addBearerAuth()
+        .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'access-token')
         .build();
 
     const document = SwaggerModule.createDocument(app, config);

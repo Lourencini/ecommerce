@@ -1,0 +1,35 @@
+# Dependências
+node_modules/
+dist/
+
+# Prisma
+*.db
+*.db-journal
+
+# Ambiente
+.env
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build
+dist/
+build/
+.next/
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cobertura de testes
+coverage/

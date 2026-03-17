@@ -1,0 +1,238 @@
+// ============================================================
+// Prisma Schema — E-commerce 3D Print
+// Convenções:
+//   - Tabelas no plural (@@map)
+//   - Modelos no singular
+//   - UUIDs para IDs de pedidos e produtos (anti-IDOR)
+//   - Preços como Decimal(19,4) (anti-arredondamento)
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// CATEGORIAS DE PRODUTOS
+// ============================================================
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(100)
+  slug        String    @unique @db.VarChar(100)
+  description String?   @db.Text
+  imageUrl    String?   @map("image_url") @db.VarChar(500)
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  products    Product[]
+
+  @@map("categories")
+}
+
+// ============================================================
+// PRODUTOS
+// UUID para anti-IDOR (evita enumeração sequencial)
+// Decimal(19,4) para precisão de preços
+// ============================================================
+model Product {
+  id               String   @id @default(uuid()) @db.Uuid
+  sku              String   @unique @db.VarChar(50)
+  name             String   @db.VarChar(255)
+  // Descrição sanitizada no backend contra XSS
+  description      String?  @db.Text
+  // Preço com alta precisão (Decimal 19,4)
+  priceInCents     Decimal  @map("price") @db.Decimal(19, 4)
+  compareAtPrice   Decimal? @map("compare_at_price") @db.Decimal(19, 4)
+  // Dimensões para cálculo de frete
+  weightGrams      Int      @map("weight_grams")
+  lengthCm         Decimal  @map("length_cm") @db.Decimal(8, 2)
+  widthCm          Decimal  @map("width_cm") @db.Decimal(8, 2)
+  heightCm         Decimal  @map("height_cm") @db.Decimal(8, 2)
+  // Estoque
+  stockQuantity    Int      @default(0) @map("stock_quantity")
+  isActive         Boolean  @default(true) @map("is_active")
+  isFeatured       Boolean  @default(false) @map("is_featured")
+  // Material de impressão 3D
+  filamentType     String?  @map("filament_type") @db.VarChar(50)
+  filamentColor    String?  @map("filament_color") @db.VarChar(50)
+  printHours       Decimal? @map("print_hours") @db.Decimal(6, 2)
+  imageUrls        String[] @map("image_urls")
+  // Relações
+  categoryId       Int?     @map("category_id")
+  category         Category? @relation(fields: [categoryId], references: [id])
+  orderItems       OrderItem[]
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([sku])
+  @@map("products")
+}
+
+// ============================================================
+// CLIENTES
+// ============================================================
+model Customer {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(255)
+  email     String   @unique @db.VarChar(255)
+  phone     String?  @db.VarChar(20)
+  document  String?  @db.VarChar(14) // CPF/CNPJ
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orders    Order[]
+  addresses Address[]
+
+  @@index([email])
+  @@map("customers")
+}
+
+// ============================================================
+// ENDEREÇOS
+// ============================================================
+model Address {
+  id           Int      @id @default(autoincrement())
+  customerId   String   @map("customer_id") @db.Uuid
+  customer     Customer @relation(fields: [customerId], references: [id])
+  label        String?  @db.VarChar(50) // "Casa", "Trabalho"
+  street       String   @db.VarChar(255)
+  number       String   @db.VarChar(20)
+  complement   String?  @db.VarChar(100)
+  neighborhood String   @db.VarChar(100)
+  city         String   @db.VarChar(100)
+  state        String   @db.Char(2)
+  zipCode      String   @map("zip_code") @db.VarChar(9)
+  isDefault    Boolean  @default(false) @map("is_default")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  orders       Order[]
+
+  @@index([customerId])
+  @@map("addresses")
+}
+
+// ============================================================
+// PEDIDOS
+// UUID para anti-IDOR (não revela volume de vendas)
+// ============================================================
+model Order {
+  id              String      @id @default(uuid()) @db.Uuid
+  orderNumber     String      @unique @map("order_number") // Número amigável: #2024-0001
+  customerId      String      @map("customer_id") @db.Uuid
+  customer        Customer    @relation(fields: [customerId], references: [id])
+  addressId       Int?        @map("address_id")
+  address         Address?    @relation(fields: [addressId], references: [id])
+  status          OrderStatus @default(PENDING)
+  // Valores com alta precisão (Decimal 19,4)
+  subtotal        Decimal     @db.Decimal(19, 4)
+  shippingCost    Decimal     @map("shipping_cost") @db.Decimal(19, 4)
+  discount        Decimal     @default(0) @db.Decimal(19, 4)
+  total           Decimal     @db.Decimal(19, 4)
+  // Dados de frete
+  shippingService String?     @map("shipping_service") @db.VarChar(100)
+  trackingCode    String?     @map("tracking_code") @db.VarChar(100)
+  // KPI: Cycle Time — tempo entre pedido e envio
+  orderedAt       DateTime    @default(now()) @map("ordered_at")
+  shippedAt       DateTime?   @map("shipped_at")
+  deliveredAt     DateTime?   @map("delivered_at")
+  cancelledAt     DateTime?   @map("cancelled_at")
+  notes           String?     @db.Text
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  items           OrderItem[]
+  shippingQuotes  ShippingQuote[]
+  statusHistory   OrderStatusHistory[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([orderedAt])
+  @@map("orders")
+}
+
+// ============================================================
+// ITENS DO PEDIDO
+// ============================================================
+model OrderItem {
+  id          Int      @id @default(autoincrement())
+  orderId     String   @map("order_id") @db.Uuid
+  order       Order    @relation(fields: [orderId], references: [id])
+  productId   String   @map("product_id") @db.Uuid
+  product     Product  @relation(fields: [productId], references: [id])
+  quantity    Int
+  // Snapshot do preço no momento da compra
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(19, 4)
+  subtotal    Decimal  @db.Decimal(19, 4)
+  // Snapshot do nome e SKU para histórico
+  productName String   @map("product_name") @db.VarChar(255)
+  productSku  String   @map("product_sku") @db.VarChar(50)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+// ============================================================
+// HISTÓRICO DE STATUS DO PEDIDO (Audit Trail)
+// ============================================================
+model OrderStatusHistory {
+  id        Int         @id @default(autoincrement())
+  orderId   String      @map("order_id") @db.Uuid
+  order     Order       @relation(fields: [orderId], references: [id])
+  fromStatus OrderStatus? @map("from_status")
+  toStatus  OrderStatus @map("to_status")
+  note      String?     @db.Text
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  @@index([orderId])
+  @@map("order_status_history")
+}
+
+// ============================================================
+// COTAÇÕES DE FRETE
+// ============================================================
+model ShippingQuote {
+  id             Int      @id @default(autoincrement())
+  orderId        String?  @map("order_id") @db.Uuid
+  order          Order?   @relation(fields: [orderId], references: [id])
+  zipCodeOrigin  String   @map("zip_code_origin") @db.VarChar(9)
+  zipCodeDest    String   @map("zip_code_dest") @db.VarChar(9)
+  weightGrams    Int      @map("weight_grams")
+  lengthCm       Decimal  @map("length_cm") @db.Decimal(8, 2)
+  widthCm        Decimal  @map("width_cm") @db.Decimal(8, 2)
+  heightCm       Decimal  @map("height_cm") @db.Decimal(8, 2)
+  // Resultado Decimal(19,4) para precisão
+  price          Decimal  @db.Decimal(19, 4)
+  deadline       Int      // dias úteis
+  serviceName    String   @map("service_name") @db.VarChar(100)
+  carrier        String   @db.VarChar(100)
+  expiresAt      DateTime @map("expires_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([orderId])
+  @@index([zipCodeDest])
+  @@map("shipping_quotes")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+enum OrderStatus {
+  PENDING       // Aguardando pagamento
+  CONFIRMED     // Pagamento confirmado
+  IN_PRODUCTION // Em impressão 3D
+  READY         // Pronto para envio
+  SHIPPED       // Enviado (shippedAt preenchido — KPI)
+  DELIVERED     // Entregue (deliveredAt preenchido)
+  CANCELLED     // Cancelado (cancelledAt preenchido)
+  REFUNDED      // Reembolsado
+
+  @@map("order_status")
+}

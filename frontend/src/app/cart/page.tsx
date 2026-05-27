@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useCart } from '@/contexts/CartContext';
-import { API_URL } from '@/lib/api';
+import { API_URL, TUNNEL_HEADERS } from '@/lib/api';
 import Link from 'next/link';
 
 export default function CartPage() {
@@ -34,7 +34,10 @@ export default function CartPage() {
 
             const res = await fetch(`${API_URL}/shipping/calculate`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...TUNNEL_HEADERS
+                },
                 body: JSON.stringify(payload)
             });
             const data = await res.json();
@@ -45,7 +48,10 @@ export default function CartPage() {
                 // Mocking a geracao de uma cotacao gravada (Step 2 ShippingModule quote /shipping/quote)
                 const quoteRes = await fetch(`${API_URL}/shipping/quote`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        ...TUNNEL_HEADERS
+                    },
                     body: JSON.stringify({
                         zipCodeDest: payload.zipCodeDest,
                         weightGrams: payload.products.reduce((acc, p) => acc + (p.weightGrams * p.quantity), 0),
@@ -81,7 +87,10 @@ export default function CartPage() {
 
             const res = await fetch(`${API_URL}/orders`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...TUNNEL_HEADERS
+                },
                 body: JSON.stringify({
                     // Fake customer UUID do banco (precisa coincidir se possível). 
                     // Como nao tenho, vou provocar um fallback graceful

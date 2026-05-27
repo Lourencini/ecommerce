@@ -135,7 +135,7 @@ export class CreateProductDto {
     @ApiPropertyOptional({ type: [String] })
     @IsOptional()
     @IsArray()
-    @IsUrl({}, { each: true })
+    @IsString({ each: true })
     imageUrls?: string[];
 
     @ApiPropertyOptional({ example: 1 })

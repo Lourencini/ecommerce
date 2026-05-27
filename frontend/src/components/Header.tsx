@@ -1,35 +1,36 @@
-"use client";
-import React from 'react';
-import { useCart } from '../contexts/CartContext';
+'use client';
+
+import Link from 'next/link';
+import { useCart } from '@/contexts/CartContext';
 import { ShoppingCart } from 'lucide-react';
 
 export function Header() {
-    const { totalItems } = useCart();
+  const { totalItems } = useCart();
 
-    return (
-        <nav className="navbar">
-            <div className="container">
-                <h1 className="logo"><a href="/">E-3D Print</a></h1>
-                <ul className="nav-links">
-                    <li><a href="/">Vitrine</a></li>
-                    <li><a href="/admin">Painel Admin</a></li>
-                    <li>
-                        <a href="/cart" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <ShoppingCart size={20} />
-                            {totalItems > 0 && (
-                                <span style={{
-                                    background: 'var(--primary-color)',
-                                    color: 'white',
-                                    borderRadius: '50%',
-                                    padding: '2px 8px',
-                                    fontSize: '0.8rem',
-                                    fontWeight: 'bold'
-                                }}>{totalItems}</span>
-                            )}
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </nav>
-    );
+  return (
+    <nav className="navbar">
+      <div className="container">
+        <Link href="/" className="logo">
+          E-3D Print
+        </Link>
+
+        <ul className="nav-links">
+          <li>
+            <Link href="/">Vitrine</Link>
+          </li>
+          <li>
+            <Link href="/orders/track">Rastrear Pedido</Link>
+          </li>
+          <li>
+            <Link href="/cart" className="cart-link">
+              <ShoppingCart size={20} />
+              {totalItems > 0 && (
+                <span className="cart-badge">{totalItems}</span>
+              )}
+            </Link>
+          </li>
+        </ul>
+      </div>
+    </nav>
+  );
 }

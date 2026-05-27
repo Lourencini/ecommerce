@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
-import { API_URL } from '@/lib/api';
+import { API_URL, TUNNEL_HEADERS } from '@/lib/api';
 
 type ProductFormData = {
     name: string;
@@ -15,32 +15,97 @@ type ProductFormData = {
     widthCm: number;
     heightCm: number;
     material: string;
-    categoryId: number;
+    categoryId: string;
+    stockQuantity: number;
+    imageUrls: string[];
 };
 
 export default function NewProductPage() {
     const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<ProductFormData>({
         defaultValues: {
             material: 'PLA',
-            categoryId: 1,
             weightGrams: 0,
             lengthCm: 0,
             widthCm: 0,
-            heightCm: 0
+            heightCm: 0,
+            stockQuantity: 0,
+            imageUrls: []
         }
     });
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [categories, setCategories] = useState<any[]>([]);
     const [serverError, setServerError] = useState<string | null>(null);
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [previews, setPreviews] = useState<string[]>([]);
+    const [uploadProgress, setUploadProgress] = useState(0);
+
+    useEffect(() => {
+        fetch(`${API_URL}/categories`, { headers: TUNNEL_HEADERS })
+            .then(res => res.json())
+            .then(data => setCategories(data || []))
+            .catch(err => console.error('Erro ao buscar categorias:', err));
+    }, []);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            const filesArray = Array.from(e.target.files);
+            setSelectedFiles((prev) => [...prev, ...filesArray]);
+
+            const newPreviews = filesArray.map((file) => URL.createObjectURL(file));
+            setPreviews((prev) => [...prev, ...newPreviews]);
+        }
+    };
+
+    const removeFile = (index: number) => {
+        setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+        setPreviews((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    const uploadImages = async (): Promise<string[]> => {
+        if (selectedFiles.length === 0) return [];
+
+        const formData = new FormData();
+        selectedFiles.forEach((file) => {
+            formData.append('files', file);
+        });
+
+        const res = await fetch(`${API_URL}/uploads`, {
+            method: 'POST',
+            body: formData,
+            headers: TUNNEL_HEADERS,
+        });
+
+        if (!res.ok) throw new Error('Falha no upload das imagens');
+
+        const { urls } = await res.json();
+        return urls;
+    };
 
     const onSubmit = async (data: any) => {
         setLoading(true);
         setServerError(null);
+        setUploadProgress(10);
         try {
+            // 1. Upload das imagens primeiro
+            setUploadProgress(30);
+            const uploadedUrls = await uploadImages();
+            setUploadProgress(70);
+
+            // 2. Criar o produto com as URLs retornadas
+            const payload = {
+                ...data,
+                categoryId: Number(data.categoryId),
+                imageUrls: uploadedUrls,
+            };
+
             const res = await fetch(`${API_URL}/products`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...TUNNEL_HEADERS 
+                },
+                body: JSON.stringify(payload)
             });
 
             if (!res.ok) {
@@ -48,9 +113,11 @@ export default function NewProductPage() {
                 throw new Error(err.message || 'Falha ao cadastrar produto');
             }
 
+            setUploadProgress(100);
             router.push('/admin/products');
         } catch (e: any) {
             setServerError(e.message);
+            setUploadProgress(0);
         } finally {
             setLoading(false);
         }
@@ -61,6 +128,15 @@ export default function NewProductPage() {
             <h2 style={{ marginBottom: '1.5rem' }}>Cadastrar Novo Produto (3D Print)</h2>
             
             <form onSubmit={handleSubmit(onSubmit)} className="card" style={{ padding: '2rem' }}>
+                {uploadProgress > 0 && uploadProgress < 100 && (
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <div style={{ fontSize: '0.8rem', marginBottom: '0.25rem', color: 'var(--primary-color)' }}>Processando... {uploadProgress}%</div>
+                        <div style={{ height: '4px', background: 'var(--border-color)', borderRadius: '2px', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', background: 'var(--primary-color)', width: `${uploadProgress}%`, transition: 'width 0.3s' }}></div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="product-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                     
                     <div className="form-group">
@@ -120,6 +196,61 @@ export default function NewProductPage() {
                         </select>
                     </div>
 
+                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                        <label>Categoria</label>
+                        <select {...register('categoryId', { required: 'Categoria é obrigatória' })}>
+                            <option value="">Selecione...</option>
+                            {Array.isArray(categories) && categories.map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                        </select>
+                        {errors.categoryId && <span className="error-text">{errors.categoryId.message}</span>}
+                    </div>
+
+                    <div className="form-group">
+                        <label>Estoque Inicial</label>
+                        <input 
+                            type="number"
+                            {...register('stockQuantity', { valueAsNumber: true, min: 0 })}
+                            placeholder="0"
+                        />
+                    </div>
+
+                    <div style={{ gridColumn: 'span 2', marginTop: '1rem' }}>
+                        <h4 style={{ marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Fotos do Produto</h4>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                            {previews.map((src, index) => (
+                                <div key={index} style={{ position: 'relative', aspectRatio: '1/1', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                                    <img src={src} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    <button 
+                                        type="button" 
+                                        onClick={() => removeFile(index)}
+                                        style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.5)', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            ))}
+                            <label style={{ 
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                aspectRatio: '1/1', 
+                                border: '2px dashed var(--border-color)', 
+                                borderRadius: 'var(--radius-md)', 
+                                cursor: 'pointer',
+                                transition: 'border-color 0.2s',
+                                color: 'var(--text-muted)'
+                            }}>
+                                <span style={{ fontSize: '1.5rem' }}>+</span>
+                                <span style={{ fontSize: '0.7rem' }}>Foto</span>
+                                <input type="file" multiple accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
+                            </label>
+                        </div>
+                    </div>
+
                     <div style={{ gridColumn: 'span 2', marginTop: '1rem' }}>
                         <h4 style={{ marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Dados de Logística (Frete)</h4>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
@@ -170,7 +301,7 @@ export default function NewProductPage() {
                     <button type="button" onClick={() => router.back()} className="btn-secondary" disabled={loading}>
                         Cancelar
                     </button>
-                    <button type="submit" className="btn-primary" disabled={loading} style={{ minWidth: '150px' }}>
+                    <button type="submit" className="btn-primary" disabled={loading} style={{ minWidth: '180px' }}>
                         {loading ? 'Salvando...' : 'Cadastrar Produto'}
                     </button>
                 </div>

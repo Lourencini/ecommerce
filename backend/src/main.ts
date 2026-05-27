@@ -1,14 +1,33 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { join, resolve } from 'path';
+import * as express from 'express';
 
 async function bootstrap() {
-    const app = await NestFactory.create(AppModule);
-
+    const app = await NestFactory.create<NestExpressApplication>(AppModule);
+ 
     // ── Headers de Segurança (Helmet) ──────────────────────
-    app.use(helmet());
+    app.use(helmet({
+        crossOriginResourcePolicy: { policy: "cross-origin" },
+    }));
+
+    // ── Arquivos Estáticos (Uploads) ──────────────────────
+    let uploadsPath = resolve(process.cwd(), 'uploads');
+    
+    // Se não existir na raiz (caso o CWD esteja em /dist ou outro lugar), tentamos um nível acima
+    if (!require('fs').existsSync(uploadsPath)) {
+        uploadsPath = resolve(__dirname, '..', 'uploads');
+    }
+
+    app.useStaticAssets(uploadsPath, {
+        prefix: '/uploads',
+    });
+    console.log(`📁 Servindo arquivos estáticos de: ${uploadsPath}`);
 
     // ── Prefixo global da API ───────────────────────────────
     app.setGlobalPrefix('api/v1');
@@ -30,9 +49,22 @@ async function bootstrap() {
 
     // ── CORS ────────────────────────────────────────────────
     app.enableCors({
-        origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+        origin: (origin, callback) => {
+            const allowedOrigins = [
+                process.env.FRONTEND_URL || 'http://localhost:3000',
+                'http://localhost:3000'
+            ];
+            
+            // Permite local, origens do .env e qualquer subdomínio do devtunnels.ms ou loca.lt
+            if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.devtunnels.ms') || origin.endsWith('.loca.lt')) {
+                callback(null, true);
+            } else {
+                callback(new Error('Not allowed by CORS'));
+            }
+        },
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Tunnel-Skip-AntiPhishing-Scan'],
+        credentials: true,
     });
 
     // ── Swagger (OpenAPI) ───────────────────────────────────

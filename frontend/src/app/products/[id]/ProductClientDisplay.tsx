@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useCart } from '@/contexts/CartContext';
-import { API_URL } from '@/lib/api';
+import { API_URL, formatImageUrl, TUNNEL_HEADERS } from '@/lib/api';
 
 export function ProductClientDisplay({ product }: { product: any }) {
     const { addToCart } = useCart();
@@ -11,8 +11,10 @@ export function ProductClientDisplay({ product }: { product: any }) {
     const [loadingShipping, setLoadingShipping] = useState(false);
     const [shippingError, setShippingError] = useState('');
     const [added, setAdded] = useState(false);
+    const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-    const price = Number(product.priceInCents || product.price);
+    const imageUrls = product.imageUrls || [];
+    const price = Number(product.price);
 
     const handleAddToCart = () => {
         addToCart({
@@ -25,7 +27,7 @@ export function ProductClientDisplay({ product }: { product: any }) {
             lengthCm: Number(product.lengthCm),
             widthCm: Number(product.widthCm),
             heightCm: Number(product.heightCm),
-            imageUrl: product.imageUrls?.[0] || '',
+            imageUrl: imageUrls[activeImageIndex] ? formatImageUrl(imageUrls[activeImageIndex]) : '',
         });
         setAdded(true);
         setTimeout(() => setAdded(false), 2000);
@@ -44,7 +46,10 @@ export function ProductClientDisplay({ product }: { product: any }) {
         try {
             const res = await fetch(`${API_URL}/shipping/calculate`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...TUNNEL_HEADERS
+                },
                 body: JSON.stringify({
                     zipCodeDest: zipCode.replace(/\D/g, ''),
                     products: [{
@@ -76,12 +81,36 @@ export function ProductClientDisplay({ product }: { product: any }) {
         <div className="product-details-grid">
             <div className="product-gallery">
                 <div className="image-placeholder main-image">
-                    {product.imageUrls?.[0] ? (
-                        <img src={product.imageUrls[0]} alt={product.name} />
+                    {imageUrls.length > 0 ? (
+                        <img src={formatImageUrl(imageUrls[activeImageIndex])} alt={product.name} />
                     ) : (
-                        <span>Foto Principal</span>
+                        <span>Sem Imagem</span>
                     )}
                 </div>
+                
+                {imageUrls.length > 1 && (
+                    <div className="thumbnails-list" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+                        {imageUrls.map((url: string, index: number) => (
+                            <div 
+                                key={index} 
+                                onClick={() => setActiveImageIndex(index)}
+                                style={{ 
+                                    width: '80px', 
+                                    height: '80px', 
+                                    borderRadius: 'var(--radius-md)', 
+                                    overflow: 'hidden', 
+                                    border: activeImageIndex === index ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                                    cursor: 'pointer',
+                                    opacity: activeImageIndex === index ? 1 : 0.6,
+                                    transition: 'all 0.2s',
+                                    flexShrink: 0
+                                }}
+                            >
+                                <img src={formatImageUrl(url)} alt={`Thumbnail ${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             <div className="product-info-panel">

@@ -17,6 +17,33 @@ datasource db {
 }
 
 // ============================================================
+// USUÁRIO (Auth)
+// Separado de Customer: User autentica, Customer tem dados de compra
+// ============================================================
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  name         String   @db.VarChar(255)
+  role         UserRole @default(CUSTOMER)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  customer Customer?
+
+  @@index([email])
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  CUSTOMER
+
+  @@map("user_role")
+}
+
+// ============================================================
 // CATEGORIAS DE PRODUTOS
 // ============================================================
 model Category {
@@ -29,7 +56,7 @@ model Category {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  products    Product[]
+  products Product[]
 
   @@map("categories")
 }
@@ -40,47 +67,51 @@ model Category {
 // Decimal(19,4) para precisão de preços
 // ============================================================
 model Product {
-  id               String   @id @default(uuid()) @db.Uuid
-  sku              String   @unique @db.VarChar(50)
-  name             String   @db.VarChar(255)
-  // Descrição sanitizada no backend contra XSS
-  description      String?  @db.Text
-  // Preço com alta precisão (Decimal 19,4)
-  priceInCents     Decimal  @map("price") @db.Decimal(19, 4)
-  compareAtPrice   Decimal? @map("compare_at_price") @db.Decimal(19, 4)
+  id             String    @id @default(uuid()) @db.Uuid
+  sku            String    @unique @db.VarChar(50)
+  name           String    @db.VarChar(255)
+  slug           String    @unique @db.VarChar(300)
+  description    String?   @db.Text
+  priceInCents   Decimal   @map("price") @db.Decimal(19, 4)
+  compareAtPrice Decimal?  @map("compare_at_price") @db.Decimal(19, 4)
   // Dimensões para cálculo de frete
-  weightGrams      Int      @map("weight_grams")
-  lengthCm         Decimal  @map("length_cm") @db.Decimal(8, 2)
-  widthCm          Decimal  @map("width_cm") @db.Decimal(8, 2)
-  heightCm         Decimal  @map("height_cm") @db.Decimal(8, 2)
+  weightGrams    Int       @map("weight_grams")
+  lengthCm       Decimal   @map("length_cm") @db.Decimal(8, 2)
+  widthCm        Decimal   @map("width_cm") @db.Decimal(8, 2)
+  heightCm       Decimal   @map("height_cm") @db.Decimal(8, 2)
   // Estoque
-  stockQuantity    Int      @default(0) @map("stock_quantity")
-  isActive         Boolean  @default(true) @map("is_active")
-  isFeatured       Boolean  @default(false) @map("is_featured")
+  stockQuantity  Int       @default(0) @map("stock_quantity")
+  isActive       Boolean   @default(true) @map("is_active")
+  isFeatured     Boolean   @default(false) @map("is_featured")
   // Material de impressão 3D
-  material         String?  @db.VarChar(50)
-  filamentType     String?  @map("filament_type") @db.VarChar(50)
-  filamentColor    String?  @map("filament_color") @db.VarChar(50)
-  printHours       Decimal? @map("print_hours") @db.Decimal(6, 2)
-  imageUrls        String[] @map("image_urls")
+  material       String?   @db.VarChar(50)
+  filamentType   String?   @map("filament_type") @db.VarChar(50)
+  filamentColor  String?   @map("filament_color") @db.VarChar(50)
+  printHours     Decimal?  @map("print_hours") @db.Decimal(6, 2)
+  imageUrls      String[]  @map("image_urls")
   // Relações
-  categoryId       Int?     @map("category_id")
-  category         Category? @relation(fields: [categoryId], references: [id])
-  orderItems       OrderItem[]
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  categoryId     Int?      @map("category_id")
+  category       Category? @relation(fields: [categoryId], references: [id])
+  orderItems     OrderItem[]
+  reviews        Review[]
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   @@index([categoryId])
   @@index([isActive])
   @@index([sku])
+  @@index([slug])
   @@map("products")
 }
 
 // ============================================================
 // CLIENTES
+// Vinculado ao User para autenticação
 // ============================================================
 model Customer {
   id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @unique @map("user_id") @db.Uuid
+  user      User?    @relation(fields: [userId], references: [id])
   name      String   @db.VarChar(255)
   email     String   @unique @db.VarChar(255)
   phone     String?  @db.VarChar(20)
@@ -90,8 +121,10 @@ model Customer {
 
   orders    Order[]
   addresses Address[]
+  reviews   Review[]
 
   @@index([email])
+  @@index([userId])
   @@map("customers")
 }
 
@@ -113,7 +146,7 @@ model Address {
   isDefault    Boolean  @default(false) @map("is_default")
   createdAt    DateTime @default(now()) @map("created_at")
 
-  orders       Order[]
+  orders Order[]
 
   @@index([customerId])
   @@map("addresses")
@@ -124,37 +157,42 @@ model Address {
 // UUID para anti-IDOR (não revela volume de vendas)
 // ============================================================
 model Order {
-  id              String      @id @default(uuid()) @db.Uuid
-  orderNumber     String      @unique @map("order_number") // Número amigável: #2024-0001
-  customerId      String      @map("customer_id") @db.Uuid
-  customer        Customer    @relation(fields: [customerId], references: [id])
-  addressId       Int?        @map("address_id")
-  address         Address?    @relation(fields: [addressId], references: [id])
-  status          OrderStatus @default(PENDING)
-  // Valores com alta precisão (Decimal 19,4)
-  totalShipping   Decimal     @map("total_shipping") @db.Decimal(19, 4)
-  totalProducts   Decimal     @map("total_products") @db.Decimal(19, 4)
-  discount        Decimal     @default(0) @db.Decimal(19, 4)
-  total           Decimal     @db.Decimal(19, 4)
+  id               String        @id @default(uuid()) @db.Uuid
+  orderNumber      String        @unique @map("order_number")
+  customerId       String        @map("customer_id") @db.Uuid
+  customer         Customer      @relation(fields: [customerId], references: [id])
+  addressId        Int?          @map("address_id")
+  address          Address?      @relation(fields: [addressId], references: [id])
+  status           OrderStatus   @default(PENDING)
+  // Pagamento
+  paymentStatus    PaymentStatus @default(PENDING) @map("payment_status")
+  paymentMethod    String?       @map("payment_method") @db.VarChar(50)
+  paymentIntentId  String?       @map("payment_intent_id") @db.VarChar(255)
+  // Valores com alta precisão
+  totalShipping    Decimal       @map("total_shipping") @db.Decimal(19, 4)
+  totalProducts    Decimal       @map("total_products") @db.Decimal(19, 4)
+  discount         Decimal       @default(0) @db.Decimal(19, 4)
+  total            Decimal       @db.Decimal(19, 4)
   // Dados de frete
-  shippingService String?     @map("shipping_service") @db.VarChar(100)
-  trackingCode    String?     @map("tracking_code") @db.VarChar(100)
-  // KPI: Cycle Time — tempo entre pedido e envio
-  orderedAt         DateTime    @default(now()) @map("ordered_at")
-  printingStartedAt DateTime?   @map("printing_started_at")
-  shippedAt         DateTime?   @map("shipped_at")
-  deliveredAt       DateTime?   @map("delivered_at")
-  cancelledAt       DateTime?   @map("cancelled_at")
-  notes           String?     @db.Text
-  createdAt       DateTime    @default(now()) @map("created_at")
-  updatedAt       DateTime    @updatedAt @map("updated_at")
+  shippingService  String?       @map("shipping_service") @db.VarChar(100)
+  trackingCode     String?       @map("tracking_code") @db.VarChar(100)
+  // KPI: Cycle Time
+  orderedAt         DateTime     @default(now()) @map("ordered_at")
+  printingStartedAt DateTime?    @map("printing_started_at")
+  shippedAt         DateTime?    @map("shipped_at")
+  deliveredAt       DateTime?    @map("delivered_at")
+  cancelledAt       DateTime?    @map("cancelled_at")
+  notes            String?       @db.Text
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
 
-  items           OrderItem[]
-  shippingQuotes  ShippingQuote[]
-  statusHistory   OrderStatusHistory[]
+  items          OrderItem[]
+  shippingQuotes ShippingQuote[]
+  statusHistory  OrderStatusHistory[]
 
   @@index([customerId])
   @@index([status])
+  @@index([paymentStatus])
   @@index([orderedAt])
   @@map("orders")
 }
@@ -163,18 +201,16 @@ model Order {
 // ITENS DO PEDIDO
 // ============================================================
 model OrderItem {
-  id          Int      @id @default(autoincrement())
-  orderId     String   @map("order_id") @db.Uuid
-  order       Order    @relation(fields: [orderId], references: [id])
-  productId   String   @map("product_id") @db.Uuid
-  product     Product  @relation(fields: [productId], references: [id])
+  id          Int     @id @default(autoincrement())
+  orderId     String  @map("order_id") @db.Uuid
+  order       Order   @relation(fields: [orderId], references: [id])
+  productId   String  @map("product_id") @db.Uuid
+  product     Product @relation(fields: [productId], references: [id])
   quantity    Int
-  // Snapshot do preço no momento da compra
-  unitPrice   Decimal  @map("unit_price") @db.Decimal(19, 4)
-  totalPrice  Decimal  @map("total_price") @db.Decimal(19, 4)
-  // Snapshot do nome e SKU para histórico
-  productName String   @map("product_name") @db.VarChar(255)
-  productSku  String   @map("product_sku") @db.VarChar(50)
+  unitPrice   Decimal @map("unit_price") @db.Decimal(19, 4)
+  totalPrice  Decimal @map("total_price") @db.Decimal(19, 4)
+  productName String  @map("product_name") @db.VarChar(255)
+  productSku  String  @map("product_sku") @db.VarChar(50)
 
   @@index([orderId])
   @@index([productId])
@@ -182,16 +218,16 @@ model OrderItem {
 }
 
 // ============================================================
-// HISTÓRICO DE STATUS DO PEDIDO (Audit Trail)
+// HISTÓRICO DE STATUS (Audit Trail)
 // ============================================================
 model OrderStatusHistory {
-  id        Int         @id @default(autoincrement())
-  orderId   String      @map("order_id") @db.Uuid
-  order     Order       @relation(fields: [orderId], references: [id])
+  id         Int          @id @default(autoincrement())
+  orderId    String       @map("order_id") @db.Uuid
+  order      Order        @relation(fields: [orderId], references: [id])
   fromStatus OrderStatus? @map("from_status")
-  toStatus  OrderStatus @map("to_status")
-  note      String?     @db.Text
-  createdAt DateTime    @default(now()) @map("created_at")
+  toStatus   OrderStatus  @map("to_status")
+  note       String?      @db.Text
+  createdAt  DateTime     @default(now()) @map("created_at")
 
   @@index([orderId])
   @@map("order_status_history")
@@ -201,26 +237,45 @@ model OrderStatusHistory {
 // COTAÇÕES DE FRETE
 // ============================================================
 model ShippingQuote {
-  id             Int      @id @default(autoincrement())
-  orderId        String?  @map("order_id") @db.Uuid
-  order          Order?   @relation(fields: [orderId], references: [id])
-  zipCodeOrigin  String   @map("zip_code_origin") @db.VarChar(9)
-  zipCodeDest    String   @map("zip_code_dest") @db.VarChar(9)
-  weightGrams    Int      @map("weight_grams")
-  lengthCm       Decimal  @map("length_cm") @db.Decimal(8, 2)
-  widthCm        Decimal  @map("width_cm") @db.Decimal(8, 2)
-  heightCm       Decimal  @map("height_cm") @db.Decimal(8, 2)
-  // Resultado Decimal(19,4) para precisão
-  price          Decimal  @db.Decimal(19, 4)
-  deadline       Int      // dias úteis
-  serviceName    String   @map("service_name") @db.VarChar(100)
-  carrier        String   @db.VarChar(100)
-  expiresAt      DateTime @map("expires_at")
-  createdAt      DateTime @default(now()) @map("created_at")
+  id            Int      @id @default(autoincrement())
+  orderId       String?  @map("order_id") @db.Uuid
+  order         Order?   @relation(fields: [orderId], references: [id])
+  zipCodeOrigin String   @map("zip_code_origin") @db.VarChar(9)
+  zipCodeDest   String   @map("zip_code_dest") @db.VarChar(9)
+  weightGrams   Int      @map("weight_grams")
+  lengthCm      Decimal  @map("length_cm") @db.Decimal(8, 2)
+  widthCm       Decimal  @map("width_cm") @db.Decimal(8, 2)
+  heightCm      Decimal  @map("height_cm") @db.Decimal(8, 2)
+  price         Decimal  @db.Decimal(19, 4)
+  deadline      Int
+  serviceName   String   @map("service_name") @db.VarChar(100)
+  carrier       String   @db.VarChar(100)
+  expiresAt     DateTime @map("expires_at")
+  createdAt     DateTime @default(now()) @map("created_at")
 
   @@index([orderId])
   @@index([zipCodeDest])
   @@map("shipping_quotes")
+}
+
+// ============================================================
+// AVALIAÇÕES
+// ============================================================
+model Review {
+  id         Int      @id @default(autoincrement())
+  productId  String   @map("product_id") @db.Uuid
+  product    Product  @relation(fields: [productId], references: [id])
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation(fields: [customerId], references: [id])
+  rating     Int      // 1 a 5
+  comment    String?  @db.Text
+  isApproved Boolean  @default(false) @map("is_approved")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([productId, customerId])
+  @@index([productId])
+  @@index([customerId])
+  @@map("reviews")
 }
 
 // ============================================================
@@ -237,4 +292,13 @@ enum OrderStatus {
   REFUNDED
 
   @@map("order_status")
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+
+  @@map("payment_status")
 }

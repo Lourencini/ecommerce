@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { API_URL } from '@/lib/api';
+import { API_URL, TUNNEL_HEADERS } from '@/lib/api';
 
 export default function AdminOrdersPage() {
     const [orders, setOrders] = useState<any[]>([]);
@@ -10,7 +10,7 @@ export default function AdminOrdersPage() {
 
     const fetchOrders = async () => {
         try {
-            const res = await fetch(`${API_URL}/orders`);
+            const res = await fetch(`${API_URL}/orders`, { headers: TUNNEL_HEADERS });
             const data = await res.json();
             setOrders(data || []);
         } catch (e) {
@@ -29,7 +29,10 @@ export default function AdminOrdersPage() {
         try {
             const res = await fetch(`${API_URL}/orders/${orderId}/status`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...TUNNEL_HEADERS
+                },
                 body: JSON.stringify({ status: newStatus, note: 'Atualizado pelo Painel Admin' })
             });
 

@@ -4,137 +4,197 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
 import {
-    ProductNotFoundException,
-    ProductSkuConflictException,
-    ProductNameConflictException,
+  ProductNotFoundException,
+  ProductSkuConflictException,
+  ProductNameConflictException,
 } from '../common/exceptions/domain.exceptions';
 import { Prisma } from '@prisma/client';
+import slugify from 'slugify';
 
 @Injectable()
 export class ProductsService {
-    private readonly logger = new Logger(ProductsService.name);
+  private readonly logger = new Logger(ProductsService.name);
 
-    constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
-    async create(createProductDto: CreateProductDto) {
-        // Verifica duplicidade por nome
-        const existingByName = await this.prisma.product.findFirst({
-            where: { name: createProductDto.name },
-        });
+  private generateSlug(name: string): string {
+    return slugify(name, { lower: true, strict: true, locale: 'pt' });
+  }
 
-        if (existingByName) {
-            throw new ProductNameConflictException(createProductDto.name);
-        }
+  private async uniqueSlug(name: string, excludeId?: string): Promise<string> {
+    let slug = this.generateSlug(name);
+    let suffix = 0;
 
-        try {
-            const product = await this.prisma.product.create({
-                data: {
-                    ...createProductDto,
-                    priceInCents: createProductDto.price,
-                    compareAtPrice: createProductDto.compareAtPrice,
-                },
-            });
+    while (true) {
+      const candidate = suffix === 0 ? slug : `${slug}-${suffix}`;
+      const existing = await this.prisma.product.findFirst({
+        where: {
+          slug: candidate,
+          ...(excludeId ? { NOT: { id: excludeId } } : {}),
+        },
+      });
+      if (!existing) return candidate;
+      suffix++;
+    }
+  }
 
-            return { data: product };
-        } catch (error) {
-            if (
-                error instanceof Prisma.PrismaClientKnownRequestError &&
-                error.code === 'P2002'
-            ) {
-                throw new ProductSkuConflictException(createProductDto.sku);
-            }
-            throw error;
-        }
+  async create(createProductDto: CreateProductDto) {
+    const existingByName = await this.prisma.product.findFirst({
+      where: { name: createProductDto.name },
+    });
+
+    if (existingByName) {
+      throw new ProductNameConflictException(createProductDto.name);
     }
 
-    async findAll(query: ProductQueryDto) {
-        const {
-            page = 1,
-            limit = 20,
-            search,
-            categoryId,
-            isActive,
-            isFeatured,
-        } = query;
-        const skip = (page - 1) * limit;
+    try {
+      const { price, compareAtPrice, categoryId, ...rest } = createProductDto;
+      const slug = await this.uniqueSlug(createProductDto.name);
 
-        const where: Prisma.ProductWhereInput = {
-            ...(categoryId && { categoryId }),
-            ...(isActive !== undefined && { isActive }),
-            ...(isFeatured !== undefined && { isFeatured }),
-            ...(search && {
-                OR: [
-                    { name: { contains: search, mode: 'insensitive' } },
-                    { sku: { contains: search, mode: 'insensitive' } },
-                ],
-            }),
-        };
+      const product = await this.prisma.product.create({
+        data: {
+          ...rest,
+          slug,
+          priceInCents: price,
+          compareAtPrice: compareAtPrice,
+          category: categoryId ? { connect: { id: categoryId } } : undefined,
+        },
+      });
 
-        const [items, total] = await Promise.all([
-            this.prisma.product.findMany({
-                where,
-                skip,
-                take: limit,
-                orderBy: { createdAt: 'desc' },
-                include: { category: true },
-            }),
-            this.prisma.product.count({ where }),
-        ]);
+      return {
+        data: {
+          ...product,
+          price: Number(product.priceInCents),
+        },
+      };
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ProductSkuConflictException(createProductDto.sku);
+      }
+      throw error;
+    }
+  }
 
-        return {
-            items,
-            meta: {
-                total,
-                page,
-                lastPage: Math.ceil(total / limit),
-            },
-        };
+  async findAll(query: ProductQueryDto) {
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      categoryId,
+      isActive,
+      isFeatured,
+    } = query;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ProductWhereInput = {
+      ...(categoryId && { categoryId }),
+      ...(isActive !== undefined && { isActive }),
+      ...(isFeatured !== undefined && { isFeatured }),
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { sku: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: { category: true },
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    const mappedItems = items.map((item) => ({
+      ...item,
+      price: Number(item.priceInCents),
+    }));
+
+    return {
+      items: mappedItems,
+      data: mappedItems,
+      meta: {
+        total,
+        page,
+        lastPage: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async findOne(id: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      include: { category: true },
+    });
+
+    if (!product) {
+      throw new ProductNotFoundException(id);
     }
 
-    async findOne(id: string) {
-        const product = await this.prisma.product.findUnique({
-            where: { id },
-            include: { category: true },
-        });
+    return {
+      ...product,
+      price: Number(product.priceInCents),
+    };
+  }
 
-        if (!product) {
-            throw new ProductNotFoundException(id);
-        }
+  async findBySlug(slug: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { slug },
+      include: { category: true },
+    });
 
-        return product;
+    if (!product) {
+      throw new ProductNotFoundException(slug);
     }
 
-    async update(id: string, updateProductDto: UpdateProductDto) {
-        // Verifica se existe
-        await this.findOne(id);
+    return { ...product, price: Number(product.priceInCents) };
+  }
 
-        try {
-            return await this.prisma.product.update({
-                where: { id },
-                data: {
-                    ...updateProductDto,
-                    ...(updateProductDto.price !== undefined && {
-                        priceInCents: updateProductDto.price,
-                    }),
-                },
-            });
-        } catch (error) {
-            if (
-                error instanceof Prisma.PrismaClientKnownRequestError &&
-                error.code === 'P2002'
-            ) {
-                throw new ProductSkuConflictException(updateProductDto.sku!);
-            }
-            throw error;
-        }
-    }
+  async update(id: string, updateProductDto: UpdateProductDto) {
+    await this.findOne(id);
 
-    async remove(id: string) {
-        await this.findOne(id);
-        // Inativa em vez de deletar fisicamente (Soft Delete padrão no e-commerce)
-        return this.prisma.product.update({
-            where: { id },
-            data: { isActive: false },
-        });
+    try {
+      const { price, compareAtPrice, categoryId, name, ...rest } =
+        updateProductDto;
+
+      const slug = name ? await this.uniqueSlug(name, id) : undefined;
+
+      const product = await this.prisma.product.update({
+        where: { id },
+        data: {
+          ...rest,
+          ...(name && { name, slug }),
+          ...(price !== undefined && { priceInCents: price }),
+          compareAtPrice: compareAtPrice,
+          category: categoryId ? { connect: { id: categoryId } } : undefined,
+        },
+      });
+
+      return { ...product, price: Number(product.priceInCents) };
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ProductSkuConflictException(updateProductDto.sku!);
+      }
+      throw error;
     }
+  }
+
+  async remove(id: string) {
+    await this.findOne(id);
+    return this.prisma.product.update({
+      where: { id },
+      data: { isActive: false },
+    });
+  }
 }

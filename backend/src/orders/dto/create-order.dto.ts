@@ -1,32 +1,35 @@
 import {
-    IsString,
-    IsNotEmpty,
-    IsInt,
-    IsPositive,
-    IsArray,
-    ValidateNested,
-    ArrayMinSize,
+  IsInt,
+  IsPositive,
+  IsArray,
+  ValidateNested,
+  ArrayMinSize,
+  IsOptional,
+  IsString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CreateOrderItemDto } from './create-order-item.dto';
 
 export class CreateOrderDto {
-    @ApiProperty({ example: 'f81d4fae-7dec-11d0-a765-00a0c91e6bf6', description: 'ID do cliente UUID' })
-    @IsString()
-    @IsNotEmpty()
-    customerId: string;
+  // customerId agora vem do JWT — não precisa mais ser enviado no body
+  // Mantemos apenas como opcional para compatibilidade com admin criar pedido manual
 
-    @ApiProperty({ example: 1, description: 'ID da cotação de frete (ShippingQuote)' })
-    @IsInt()
-    @IsPositive()
-    @Type(() => Number)
-    shippingQuoteId: number;
+  @ApiProperty({ example: 1, description: 'ID da cotação de frete (ShippingQuote)' })
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  shippingQuoteId: number;
 
-    @ApiProperty({ type: [CreateOrderItemDto] })
-    @IsArray()
-    @ArrayMinSize(1)
-    @ValidateNested({ each: true })
-    @Type(() => CreateOrderItemDto)
-    items: CreateOrderItemDto[];
+  @ApiProperty({ type: [CreateOrderItemDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderItemDto)
+  items: CreateOrderItemDto[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }

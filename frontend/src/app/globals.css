@@ -50,6 +50,10 @@
 
   --text-main:  var(--text);
   --text-muted: var(--text-2);
+  --text-1:     var(--text);
+
+  /* Aliases de danger para compatibilidade */
+  --danger: var(--danger-color);
 
   --font-display: var(--font-display, 'Cinzel Decorative', 'Times New Roman', serif);
   --font-fell:    var(--font-fell,    'IM Fell English',   Georgia, serif);
@@ -1389,7 +1393,8 @@ button     { font-family: inherit; }
   color: var(--text-2);
 }
 
-.form-input {
+.form-input,
+.field-input {
   background: var(--white);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -1402,22 +1407,25 @@ button     { font-family: inherit; }
   width: 100%;
 }
 
-.form-input:focus {
+.form-input:focus,
+.field-input:focus {
   border-color: var(--clay);
   box-shadow: 0 0 0 3px rgba(201,168,76,0.15), 0 0 12px rgba(201,168,76,0.1);
 }
 
-.form-input.input-error { border-color: var(--danger-color); }
-.form-input.input-error:focus { box-shadow: 0 0 0 3px #FFF0EF; }
+.form-input.input-error,
+.field-input.input-error { border-color: rgba(155,28,28,0.8); }
+.form-input.input-error:focus,
+.field-input.input-error:focus { box-shadow: 0 0 0 3px rgba(155,28,28,0.15); }
 
 .helper-text { font-size: 0.8rem; color: var(--text-2); }
 
 /* Field helpers */
-.field-label    { font-size: 0.8rem; font-weight: 500; color: var(--text-2); margin-bottom: 0.25rem; }
-.field-disabled { background: var(--surface); color: var(--text-3); cursor: not-allowed; }
+.field-label    { font-size: 0.8rem; font-weight: 500; color: var(--text-2); margin-bottom: 0.25rem; display: block; }
+.field-disabled { background: var(--surface) !important; color: var(--text-3) !important; cursor: not-allowed; opacity: 0.7; }
 .field-hint     { font-size: 0.75rem; color: var(--text-3); margin-top: 0.25rem; }
-.feedback-error   { font-size: 0.8rem; color: var(--danger-color); margin-top: 0.25rem; }
-.feedback-success { font-size: 0.8rem; color: var(--success-color); margin-top: 0.25rem; }
+.feedback-error   { font-size: 0.8rem; color: #F87171; margin-top: 0.25rem; }
+.feedback-success { font-size: 0.8rem; color: #6BCF8A; margin-top: 0.25rem; }
 
 /* ── Cards / Panels ───────────────────────────────────── */
 .card {

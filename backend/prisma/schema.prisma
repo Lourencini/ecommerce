@@ -303,3 +303,15 @@ enum PaymentStatus {
 
   @@map("payment_status")
 }
+
+// ============================================================
+// CONFIGURAÇÕES DO SISTEMA (chave-valor)
+// Armazena integrações configuráveis via painel admin
+// ============================================================
+model Setting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}

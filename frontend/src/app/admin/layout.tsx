@@ -24,6 +24,12 @@ const NAV_GROUPS = [
       { href: '/admin/users', icon: '👥', label: 'Usuários' },
     ],
   },
+  {
+    label: 'Sistema',
+    items: [
+      { href: '/admin/settings', icon: '⚙️', label: 'Configurações' },
+    ],
+  },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -1,16 +1,23 @@
 import type { Metadata } from 'next';
-import { Cormorant_Garamond, Plus_Jakarta_Sans } from 'next/font/google';
+import { Cinzel, IM_Fell_English, Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/Providers';
 import { Header } from '@/components/Header';
 import Link from 'next/link';
 
-const cormorant = Cormorant_Garamond({
+const cinzel = Cinzel({
   subsets: ['latin'],
-  weight: ['400', '500', '600'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-display',
+});
+
+const imFell = IM_Fell_English({
+  subsets: ['latin'],
+  weight: ['400'],
   style: ['normal', 'italic'],
   display: 'swap',
-  variable: '--font-cormorant',
+  variable: '--font-fell',
 });
 
 const jakarta = Plus_Jakarta_Sans({
@@ -46,7 +53,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${cormorant.variable} ${jakarta.variable}`}>
+    <html lang="pt-BR" className={`${cinzel.variable} ${imFell.variable} ${jakarta.variable}`}>
       <body>
         <Providers>
           <Header />

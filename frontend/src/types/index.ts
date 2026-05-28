@@ -26,7 +26,11 @@ export interface Category {
   slug: string;
   description?: string;
   imageUrl?: string;
+  icon?: string;
   isActive: boolean;
+  _count?: {
+    products: number;
+  };
 }
 
 // --- Produto ---

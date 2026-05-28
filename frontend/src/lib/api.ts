@@ -37,7 +37,7 @@ export async function fetchProducts(
     if (params?.isFeatured !== undefined) query.set('isFeatured', String(params.isFeatured));
 
     const res = await fetch(`${API_URL}/products?${query}`, {
-      next: { revalidate: 30 },
+      cache: 'no-store',
     });
 
     if (!res.ok) throw new Error('Falha ao buscar produtos');
@@ -64,7 +64,7 @@ export async function fetchProductById(id: string): Promise<Product | null> {
 export async function fetchFeaturedProducts(): Promise<Product[]> {
   try {
     const res = await fetch(`${API_URL}/products?isFeatured=true&limit=6`, {
-      next: { revalidate: 60 },
+      cache: 'no-store',
     });
     if (!res.ok) return [];
     const data: PaginatedResponse<Product> = await res.json();

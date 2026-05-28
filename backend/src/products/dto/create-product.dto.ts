@@ -64,6 +64,15 @@ export class CreateProductDto {
     @IsOptional()
     @IsNumber({ maxDecimalPlaces: 4 })
     @IsPositive()
+    @Transform(({ value }) => {
+        if (value === undefined || value === '') return undefined;
+        if (value === null) return null;
+        if (typeof value === 'string') {
+            const parsed = parseFloat(value.replace('R$', '').replace(',', '.').trim());
+            return isNaN(parsed) ? undefined : parsed;
+        }
+        return value;
+    })
     @Type(() => Number)
     compareAtPrice?: number;
 

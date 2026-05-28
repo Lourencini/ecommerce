@@ -8,6 +8,8 @@ dist/
 
 # Ambiente
 .env
+.env.local
+.env*.local
 !.env.example
 
 # Logs
@@ -33,3 +35,11 @@ Thumbs.db
 
 # Cobertura de testes
 coverage/
+
+# Uploads de produtos (gerados em runtime)
+backend/uploads/
+
+# Scripts e estado de execução local
+.run-backend.ps1
+.run-frontend.ps1
+.running.json

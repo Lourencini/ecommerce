@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   ParseIntPipe,
@@ -11,6 +12,7 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CustomersService } from './customers.service';
 import { CreateAddressDto } from './dto/create-address.dto';
+import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserData } from '../auth/decorators/current-user.decorator';
 
@@ -25,6 +27,15 @@ export class CustomersController {
   @ApiOperation({ summary: 'Dados do cliente logado' })
   getMe(@CurrentUser() user: CurrentUserData) {
     return this.customersService.getMe(user.customerId!);
+  }
+
+  @Patch('me')
+  @ApiOperation({ summary: 'Atualizar nome e telefone do cliente logado' })
+  updateMe(
+    @CurrentUser() user: CurrentUserData,
+    @Body() dto: UpdateCustomerDto,
+  ) {
+    return this.customersService.updateMe(user.customerId!, dto);
   }
 
   @Get('me/orders')
@@ -55,5 +66,14 @@ export class CustomersController {
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.customersService.setDefaultAddress(user.customerId!, id);
+  }
+
+  @Delete('me/addresses/:id')
+  @ApiOperation({ summary: 'Excluir endereço' })
+  deleteAddress(
+    @CurrentUser() user: CurrentUserData,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.customersService.deleteAddress(user.customerId!, id);
   }
 }

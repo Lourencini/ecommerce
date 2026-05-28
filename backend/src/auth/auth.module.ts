@@ -16,7 +16,8 @@ import { PrismaModule } from '../prisma/prisma.module';
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET', 'changeme-in-production'),
         signOptions: {
-          expiresIn: config.get<string>('JWT_EXPIRES_IN', '7d'),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          expiresIn: config.get<string>('JWT_EXPIRES_IN', '7d') as any,
         },
       }),
       inject: [ConfigService],

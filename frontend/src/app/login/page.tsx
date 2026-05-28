@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/';
@@ -37,57 +37,62 @@ export default function LoginPage() {
   };
 
   return (
+    <form onSubmit={handleSubmit} className="auth-form">
+      <div className="form-group">
+        <label className="form-label" htmlFor="email">E-mail</label>
+        <input
+          id="email"
+          type="email"
+          className="form-input"
+          placeholder="seu@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          autoComplete="email"
+        />
+      </div>
+
+      <div className="form-group">
+        <label className="form-label" htmlFor="password">Senha</label>
+        <input
+          id="password"
+          type="password"
+          className="form-input"
+          placeholder="••••••••"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          autoComplete="current-password"
+        />
+      </div>
+
+      {error && <div className="alert alert-error">{error}</div>}
+
+      <button type="submit" className="btn-primary btn-full" disabled={loading}>
+        {loading ? 'Entrando...' : 'Entrar'}
+      </button>
+    </form>
+  );
+}
+
+export default function LoginPage() {
+  return (
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-header">
-          <h1 className="logo" style={{ justifyContent: 'center', display: 'flex', marginBottom: '0.5rem' }}>
+          <span
+            className="logo"
+            style={{ justifyContent: 'center', display: 'flex', marginBottom: '0.5rem' }}
+          >
             E-3D Print
-          </h1>
-          <h2 className="auth-title">Entrar na conta</h2>
+          </span>
+          <h1 className="auth-title">Entrar na conta</h1>
           <p className="auth-subtitle">Bem-vindo de volta!</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label className="form-label" htmlFor="email">E-mail</label>
-            <input
-              id="email"
-              type="email"
-              className="form-input"
-              placeholder="seu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="password">Senha</label>
-            <input
-              id="password"
-              type="password"
-              className="form-input"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-            />
-          </div>
-
-          {error && (
-            <div className="alert alert-error">{error}</div>
-          )}
-
-          <button
-            type="submit"
-            className="btn-primary btn-full"
-            disabled={loading}
-          >
-            {loading ? 'Entrando...' : 'Entrar'}
-          </button>
-        </form>
+        <Suspense fallback={<div className="page-spinner"><div className="spinner" /></div>}>
+          <LoginForm />
+        </Suspense>
 
         <p className="auth-footer">
           Não tem conta?{' '}

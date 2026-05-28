@@ -62,10 +62,16 @@ const handler = NextAuth({
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.id as string;
-        (session.user as any).role = token.role;
-        (session.user as any).customerId = token.customerId;
-        (session.user as any).accessToken = token.accessToken;
+        if (session.user) {
+          (session.user as any).id          = token.id;
+          (session.user as any).role        = token.role;
+          (session.user as any).customerId  = token.customerId;
+          (session.user as any).accessToken = token.accessToken;
+        }
+        // Expor também na raiz do objeto session para conveniência
+        (session as any).accessToken  = token.accessToken;
+        (session as any).role         = token.role;
+        (session as any).customerId   = token.customerId;
       }
       return session;
     },

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
 import { API_URL } from '@/lib/api';
+import { useAdminToken } from '@/hooks/useAdminToken';
 
 interface SummaryMetrics {
   totalOrders: number;
@@ -39,23 +39,20 @@ function KpiCard({
 }
 
 export default function AdminDashboard() {
-  const { data: session } = useSession();
+  const { status, authFetch } = useAdminToken();
   const [metrics, setMetrics] = useState<SummaryMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const accessToken = (session?.user as any)?.accessToken;
-
   useEffect(() => {
-    if (!accessToken) return;
+    if (status !== 'authenticated') return;
 
-    fetch(`${API_URL}/orders/metrics/summary`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
+    authFetch(`${API_URL}/orders/metrics/summary`)
       .then((r) => r.json())
-      .then((data) => setMetrics(data))
+      .then((data: SummaryMetrics) => setMetrics(data))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [accessToken]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   return (
     <div>
@@ -76,7 +73,7 @@ export default function AdminDashboard() {
         />
         <KpiCard
           title="Receita do Mês"
-          value={metrics ? `R$ ${metrics.monthlyRevenue.toFixed(0)}` : '—'}
+          value={metrics ? `R$ ${Number(metrics.monthlyRevenue ?? 0).toFixed(0)}` : '—'}
           sub="Pagamentos aprovados"
           color="var(--success-color)"
           loading={loading}
@@ -89,7 +86,7 @@ export default function AdminDashboard() {
         />
         <KpiCard
           title="Cycle Time Médio"
-          value={metrics ? `${metrics.cycleTimeAvgHours}h` : '—'}
+          value={metrics ? `${Number(metrics.cycleTimeAvgHours ?? 0).toFixed(1)}h` : '—'}
           sub="Pedido → Envio"
           color="var(--info-color)"
           loading={loading}

@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { useCart } from '@/contexts/CartContext';
-import { API_URL, formatImageUrl, TUNNEL_HEADERS } from '@/lib/api';
+import { API_URL, formatImageUrl } from '@/lib/api';
 
 export function ProductClientDisplay({ product }: { product: any }) {
+    const { data: session } = useSession();
     const { addToCart } = useCart();
     const [zipCode, setZipCode] = useState('');
     const [shippingOptions, setShippingOptions] = useState<any[]>([]);
@@ -12,9 +14,41 @@ export function ProductClientDisplay({ product }: { product: any }) {
     const [shippingError, setShippingError] = useState('');
     const [added, setAdded] = useState(false);
     const [activeImageIndex, setActiveImageIndex] = useState(0);
+    const [cepAutoFilled, setCepAutoFilled] = useState(false);
 
-    const imageUrls = product.imageUrls || [];
-    const price = Number(product.price);
+    const imageUrls  = product.imageUrls || [];
+    const price      = Number(product.price);
+    const compareAt  = product.compareAtPrice ? Number(product.compareAtPrice) : null;
+    const hasDiscount = compareAt && compareAt > price;
+    const discountPct = hasDiscount ? Math.round((1 - price / compareAt!) * 100) : 0;
+
+    // Auto-preenche o CEP e calcula o frete com o endereço padrão do cliente logado
+    useEffect(() => {
+        if (!session) return;
+        const token =
+            (session?.user as any)?.accessToken ??
+            (session as any)?.accessToken;
+        if (!token) return;
+
+        fetch(`${API_URL}/customers/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => {
+                if (!data) return;
+                const defaultAddr =
+                    data.addresses?.find((a: any) => a.isDefault) ??
+                    data.addresses?.[0];
+                if (defaultAddr?.zipCode) {
+                    const cep = defaultAddr.zipCode.replace(/\D/g, '');
+                    setZipCode(cep);
+                    setCepAutoFilled(true);
+                    doCalculateShipping(cep);
+                }
+            })
+            .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session]);
 
     const handleAddToCart = () => {
         addToCart({
@@ -33,8 +67,10 @@ export function ProductClientDisplay({ product }: { product: any }) {
         setTimeout(() => setAdded(false), 2000);
     };
 
-    const calculateShipping = async () => {
-        if (zipCode.replace(/\D/g, '').length !== 8) {
+    // Recebe o CEP diretamente para evitar stale closure ao chamar via useEffect
+    const doCalculateShipping = async (cepValue: string) => {
+        const cep = cepValue.replace(/\D/g, '');
+        if (cep.length !== 8) {
             setShippingError('CEP deve ter 8 números.');
             return;
         }
@@ -46,12 +82,9 @@ export function ProductClientDisplay({ product }: { product: any }) {
         try {
             const res = await fetch(`${API_URL}/shipping/calculate`, {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    ...TUNNEL_HEADERS
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    zipCodeDest: zipCode.replace(/\D/g, ''),
+                    zipCodeDest: cep,
                     products: [{
                         productId: product.id,
                         quantity: 1,
@@ -76,6 +109,8 @@ export function ProductClientDisplay({ product }: { product: any }) {
             setLoadingShipping(false);
         }
     };
+
+    const calculateShipping = () => doCalculateShipping(zipCode);
 
     return (
         <div className="product-details-grid">
@@ -117,6 +152,18 @@ export function ProductClientDisplay({ product }: { product: any }) {
                 <h1 className="product-title">{product.name}</h1>
                 <p className="product-sku">SKU: {product.sku}</p>
 
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
+                    {hasDiscount && (
+                        <span className="badge badge-success" style={{ fontSize: '0.85rem' }}>
+                            -{discountPct}%
+                        </span>
+                    )}
+                    {hasDiscount && (
+                        <span className="compare-price" style={{ fontSize: '1.1rem' }}>
+                            R$ {compareAt!.toFixed(2).replace('.', ',')}
+                        </span>
+                    )}
+                </div>
                 <div className="price-huge">
                     R$ {price.toFixed(2).replace('.', ',')}
                 </div>
@@ -150,13 +197,27 @@ export function ProductClientDisplay({ product }: { product: any }) {
                             type="text"
                             placeholder="00000-000"
                             value={zipCode}
-                            onChange={(e) => setZipCode(e.target.value)}
+                            onChange={(e) => {
+                                setZipCode(e.target.value);
+                                setCepAutoFilled(false);
+                            }}
                             maxLength={9}
                         />
                         <button className="btn-secondary" onClick={calculateShipping} disabled={loadingShipping}>
                             {loadingShipping ? '...' : 'Calcular'}
                         </button>
                     </div>
+
+                    {cepAutoFilled && shippingOptions.length === 0 && !loadingShipping && !shippingError && (
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                            📍 CEP do seu endereço padrão
+                        </p>
+                    )}
+                    {cepAutoFilled && shippingOptions.length > 0 && (
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                            📍 Calculado para o seu endereço padrão
+                        </p>
+                    )}
 
                     {shippingError && <p className="error-text">{shippingError}</p>}
 

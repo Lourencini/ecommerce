@@ -1,10 +1,24 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAddressDto } from './dto/create-address.dto';
+import { UpdateCustomerDto } from './dto/update-customer.dto';
 
 @Injectable()
 export class CustomersService {
   constructor(private prisma: PrismaService) {}
+
+  async updateMe(customerId: string, dto: UpdateCustomerDto) {
+    const customer = await this.prisma.customer.findUnique({ where: { id: customerId } });
+    if (!customer) throw new NotFoundException('Cliente não encontrado.');
+
+    return this.prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        ...(dto.name  && { name:  dto.name }),
+        ...(dto.phone && { phone: dto.phone }),
+      },
+    });
+  }
 
   async getMe(customerId: string) {
     const customer = await this.prisma.customer.findUnique({
@@ -49,6 +63,26 @@ export class CustomersService {
       where: { customerId },
       orderBy: { isDefault: 'desc' },
     });
+  }
+
+  async deleteAddress(customerId: string, addressId: number) {
+    const address = await this.prisma.address.findFirst({
+      where: { id: addressId, customerId },
+      include: { orders: { take: 1 } },
+    });
+
+    if (!address) throw new NotFoundException('Endereço não encontrado.');
+
+    // Não excluir se houver pedidos vinculados
+    if (address.orders.length > 0) {
+      // Marcar como inativo sem excluir (soft delete via label)
+      return this.prisma.address.update({
+        where: { id: addressId },
+        data: { label: '[excluído]', isDefault: false },
+      });
+    }
+
+    return this.prisma.address.delete({ where: { id: addressId } });
   }
 
   async setDefaultAddress(customerId: string, addressId: number) {

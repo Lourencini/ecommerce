@@ -65,6 +65,7 @@ export class ProductsService {
         data: {
           ...product,
           price: Number(product.priceInCents),
+          compareAtPrice: product.compareAtPrice != null ? Number(product.compareAtPrice) : null,
         },
       };
     } catch (error) {
@@ -116,6 +117,7 @@ export class ProductsService {
     const mappedItems = items.map((item) => ({
       ...item,
       price: Number(item.priceInCents),
+      compareAtPrice: item.compareAtPrice != null ? Number(item.compareAtPrice) : null,
     }));
 
     return {
@@ -142,6 +144,7 @@ export class ProductsService {
     return {
       ...product,
       price: Number(product.priceInCents),
+      compareAtPrice: product.compareAtPrice != null ? Number(product.compareAtPrice) : null,
     };
   }
 
@@ -155,7 +158,11 @@ export class ProductsService {
       throw new ProductNotFoundException(slug);
     }
 
-    return { ...product, price: Number(product.priceInCents) };
+    return {
+      ...product,
+      price: Number(product.priceInCents),
+      compareAtPrice: product.compareAtPrice != null ? Number(product.compareAtPrice) : null,
+    };
   }
 
   async update(id: string, updateProductDto: UpdateProductDto) {
@@ -173,12 +180,16 @@ export class ProductsService {
           ...rest,
           ...(name && { name, slug }),
           ...(price !== undefined && { priceInCents: price }),
-          compareAtPrice: compareAtPrice,
+          ...(compareAtPrice !== undefined ? { compareAtPrice } : {}),
           category: categoryId ? { connect: { id: categoryId } } : undefined,
         },
       });
 
-      return { ...product, price: Number(product.priceInCents) };
+      return {
+        ...product,
+        price: Number(product.priceInCents),
+        compareAtPrice: product.compareAtPrice != null ? Number(product.compareAtPrice) : null,
+      };
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

@@ -55,7 +55,6 @@ export class PaymentsService {
           failure: `${frontendUrl}/checkout/failure`,
           pending: `${frontendUrl}/checkout/pending`,
         },
-        auto_approve: false,
         notification_url: `${this.config.get('API_URL', 'http://localhost:3001/api/v1')}/payments/webhook`,
         metadata: { order_id: order.id, order_number: order.orderNumber },
       },

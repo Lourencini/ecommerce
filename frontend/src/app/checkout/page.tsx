@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useCart } from '@/contexts/CartContext';
 import { API_URL } from '@/lib/api';
@@ -36,12 +36,50 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  // ID do endereço salvo pré-carregado (para evitar duplicação ao finalizar)
+  const [savedAddressId, setSavedAddressId] = useState<number | null>(null);
 
-  const accessToken = (session?.user as any)?.accessToken;
+  const accessToken =
+    (session?.user as any)?.accessToken ?? (session as any)?.accessToken ?? '';
 
   const authHeaders = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${accessToken}`,
+  };
+
+  // Pré-carrega o endereço padrão do cliente logado
+  useEffect(() => {
+    if (!accessToken) return;
+
+    fetch(`${API_URL}/customers/me/addresses`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((addresses: any[] | null) => {
+        if (!Array.isArray(addresses) || addresses.length === 0) return;
+        const defaultAddr =
+          addresses.find((a) => a.isDefault) ?? addresses[0];
+        if (!defaultAddr) return;
+
+        setSavedAddressId(defaultAddr.id);
+        setAddress({
+          street: defaultAddr.street ?? '',
+          number: defaultAddr.number ?? '',
+          complement: defaultAddr.complement ?? '',
+          neighborhood: defaultAddr.neighborhood ?? '',
+          city: defaultAddr.city ?? '',
+          state: defaultAddr.state ?? '',
+          zipCode: defaultAddr.zipCode ?? '',
+        });
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken]);
+
+  // Wrapper para alterar campos do endereço (limpa a referência ao endereço salvo se o usuário editar)
+  const handleAddressField = (field: keyof AddressForm, value: string) => {
+    setSavedAddressId(null);
+    setAddress((p) => ({ ...p, [field]: value }));
   };
 
   // Auto-preencher endereço via ViaCEP
@@ -149,16 +187,18 @@ export default function CheckoutPage() {
     setError('');
 
     try {
-      // 1. Salvar endereço do cliente
-      await fetch(`${API_URL}/customers/me/addresses`, {
-        method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify({
-          ...address,
-          zipCode: address.zipCode.replace(/\D/g, ''),
-          isDefault: true,
-        }),
-      });
+      // 1. Salvar endereço do cliente (apenas se for novo ou modificado pelo usuário)
+      if (!savedAddressId) {
+        await fetch(`${API_URL}/customers/me/addresses`, {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify({
+            ...address,
+            zipCode: address.zipCode.replace(/\D/g, ''),
+            isDefault: true,
+          }),
+        });
+      }
 
       // 2. Criar o pedido
       const orderRes = await fetch(`${API_URL}/orders`, {
@@ -231,7 +271,7 @@ export default function CheckoutPage() {
     <div className="checkout-page">
       {/* Stepper */}
       <div className="stepper">
-        <div className={`stepper-step ${step === 'address' ? 'active' : step !== 'address' ? 'completed' : ''}`}>
+        <div className={`stepper-step ${step === 'address' ? 'active' : 'completed'}`}>
           <span className="stepper-dot">1</span>
           <span>Endereço</span>
         </div>
@@ -254,7 +294,12 @@ export default function CheckoutPage() {
           {/* ETAPA 1: Endereço */}
           {step === 'address' && (
             <div className="card" style={{ padding: '1.5rem' }}>
-              <h3 style={{ marginBottom: '1.5rem' }}>📍 Endereço de Entrega</h3>
+              <h3 style={{ marginBottom: '0.5rem' }}>📍 Endereço de Entrega</h3>
+              {savedAddressId && (
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+                  Endereço padrão pré-carregado. Edite se necessário.
+                </p>
+              )}
               <form onSubmit={handleAddressSubmit}>
                 <div className="form-grid">
                   <div className="form-group" style={{ gridColumn: 'span 2' }}>
@@ -264,7 +309,7 @@ export default function CheckoutPage() {
                       className="form-input"
                       placeholder="00000-000"
                       value={address.zipCode}
-                      onChange={(e) => setAddress((p) => ({ ...p, zipCode: e.target.value }))}
+                      onChange={(e) => handleAddressField('zipCode', e.target.value)}
                       onBlur={handleCepBlur}
                       maxLength={9}
                       required
@@ -279,7 +324,7 @@ export default function CheckoutPage() {
                       className="form-input"
                       placeholder="Rua das Flores"
                       value={address.street}
-                      onChange={(e) => setAddress((p) => ({ ...p, street: e.target.value }))}
+                      onChange={(e) => handleAddressField('street', e.target.value)}
                       required
                     />
                   </div>
@@ -291,7 +336,7 @@ export default function CheckoutPage() {
                       className="form-input"
                       placeholder="123"
                       value={address.number}
-                      onChange={(e) => setAddress((p) => ({ ...p, number: e.target.value }))}
+                      onChange={(e) => handleAddressField('number', e.target.value)}
                       required
                     />
                   </div>
@@ -303,7 +348,7 @@ export default function CheckoutPage() {
                       className="form-input"
                       placeholder="Apto 4"
                       value={address.complement}
-                      onChange={(e) => setAddress((p) => ({ ...p, complement: e.target.value }))}
+                      onChange={(e) => handleAddressField('complement', e.target.value)}
                     />
                   </div>
 
@@ -313,7 +358,7 @@ export default function CheckoutPage() {
                       type="text"
                       className="form-input"
                       value={address.neighborhood}
-                      onChange={(e) => setAddress((p) => ({ ...p, neighborhood: e.target.value }))}
+                      onChange={(e) => handleAddressField('neighborhood', e.target.value)}
                       required
                     />
                   </div>
@@ -324,7 +369,7 @@ export default function CheckoutPage() {
                       type="text"
                       className="form-input"
                       value={address.city}
-                      onChange={(e) => setAddress((p) => ({ ...p, city: e.target.value }))}
+                      onChange={(e) => handleAddressField('city', e.target.value)}
                       required
                     />
                   </div>
@@ -336,7 +381,7 @@ export default function CheckoutPage() {
                       className="form-input"
                       placeholder="SP"
                       value={address.state}
-                      onChange={(e) => setAddress((p) => ({ ...p, state: e.target.value.toUpperCase() }))}
+                      onChange={(e) => handleAddressField('state', e.target.value.toUpperCase())}
                       maxLength={2}
                       required
                     />

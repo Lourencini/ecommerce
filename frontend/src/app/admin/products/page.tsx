@@ -2,51 +2,48 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { API_URL, TUNNEL_HEADERS } from '@/lib/api';
+import { API_URL } from '@/lib/api';
+import { useAdminToken } from '@/hooks/useAdminToken';
+
+const fmt = (v: unknown) => Number(v ?? 0).toFixed(2).replace('.', ',');
 
 export default function AdminProductsPage() {
+    const { status, authFetch } = useAdminToken();
     const [products, setProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [deleteId, setDeleteId] = useState<string | null>(null);
 
     const fetchProductsList = async () => {
         try {
-            const res = await fetch(`${API_URL}/products?limit=50`, {
-                headers: TUNNEL_HEADERS
-            });
-            const { items } = await res.json();
-            setProducts(items || []);
-        } catch (e) {
-            console.error(e);
+            const res = await authFetch(`${API_URL}/products?limit=100`);
+            const data = await res.json();
+            setProducts(data?.items ?? data?.data ?? (Array.isArray(data) ? data : []));
+        } catch (e: any) {
+            if (!e.message.includes('Sessão expirada')) console.error(e);
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
+        if (status !== 'authenticated') return;
         fetchProductsList();
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [status]);
 
     const handleToggleStatus = async () => {
         if (!deleteId) return;
         const product = products.find(p => p.id === deleteId);
         if (!product) return;
-
-        const newStatus = !product.isActive;
-        
         try {
-            await fetch(`${API_URL}/products/${deleteId}`, {
+            await authFetch(`${API_URL}/products/${deleteId}`, {
                 method: 'PATCH',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    ...TUNNEL_HEADERS
-                },
-                body: JSON.stringify({ isActive: newStatus })
+                body: JSON.stringify({ isActive: !product.isActive }),
             });
             fetchProductsList();
             setDeleteId(null);
-        } catch (e) {
-            console.error(e);
+        } catch (e: any) {
+            if (!e.message.includes('Sessão expirada')) console.error(e);
         }
     };
 
@@ -76,7 +73,7 @@ export default function AdminProductsPage() {
                             <tr key={p.id}>
                                 <td><span className="badge badge-stock">{p.sku}</span></td>
                                 <td>{p.name}</td>
-                                <td className="align-right">R$ {Number(p.price).toFixed(2).replace('.', ',')}</td>
+                                <td className="align-right">R$ {fmt(p.price)}</td>
                                 <td className="align-right">{p.stockQuantity}</td>
                                 <td>
                                     <span className="badge" style={{ background: p.isActive ? 'var(--primary-color)' : 'var(--border-color)' }}>

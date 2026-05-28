@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { API_URL } from '@/lib/api';
 import type { Category } from '@/types';
 import { Search } from 'lucide-react';
@@ -17,6 +17,7 @@ export function StorefrontFilters({
 }: StorefrontFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const [, startTransition] = useTransition();
 
   const [search, setSearch] = useState(currentSearch);
@@ -36,7 +37,7 @@ export function StorefrontFilters({
     params.set('page', '1');
 
     startTransition(() => {
-      router.push(`/?${params.toString()}`);
+      router.push(`${pathname}?${params.toString()}`);
     });
   };
 
@@ -51,7 +52,7 @@ export function StorefrontFilters({
 
   const clearFilters = () => {
     setSearch('');
-    router.push('/');
+    router.push(pathname);
   };
 
   const hasActiveFilters = currentSearch || currentCategoryId;

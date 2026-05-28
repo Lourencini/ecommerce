@@ -84,7 +84,7 @@ export default function LoginPage() {
             className="logo"
             style={{ justifyContent: 'center', display: 'flex', marginBottom: '0.5rem' }}
           >
-            E-3D Print
+            WB Maker
           </span>
           <h1 className="auth-title">Entrar na conta</h1>
           <p className="auth-subtitle">Bem-vindo de volta!</p>

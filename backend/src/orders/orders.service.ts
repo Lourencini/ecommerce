@@ -139,11 +139,51 @@ export class OrdersService {
     return order;
   }
 
-  async findAll() {
-    return this.prisma.order.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: { customer: true, items: true },
-    });
+  async findAll(params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  } = {}) {
+    const { page = 1, limit = 15, status, search, dateFrom, dateTo } = params;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (status) where.status = status;
+
+    if (search) {
+      where.OR = [
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { customer: { name: { contains: search, mode: 'insensitive' } } },
+        { customer: { email: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+      if (dateTo) {
+        const to = new Date(dateTo);
+        to.setHours(23, 59, 59, 999);
+        where.createdAt.lte = to;
+      }
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: { customer: true, items: true },
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return { data, total, page, limit, pages: Math.ceil(total / limit) };
   }
 
   async trackOrder(orderNumber: string, email: string) {

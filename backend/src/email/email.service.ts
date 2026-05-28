@@ -10,7 +10,7 @@ export class EmailService {
 
   constructor(private config: ConfigService) {
     this.resend = new Resend(config.get<string>('RESEND_API_KEY', ''));
-    this.from = config.get<string>('EMAIL_FROM', 'E-3D Print <noreply@e3dprint.com>');
+    this.from = config.get<string>('EMAIL_FROM', 'WB Maker <noreply@e3dprint.com>');
   }
 
   async sendOrderConfirmation(params: {
@@ -34,7 +34,7 @@ export class EmailService {
 
     const html = `
       <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#fff">
-        <h1 style="color:#6d28d9;font-size:24px;margin-bottom:8px">E-3D Print</h1>
+        <h1 style="color:#6d28d9;font-size:24px;margin-bottom:8px">WB Maker</h1>
         <p style="color:#64748b;margin-bottom:24px">Impressões 3D Premium</p>
 
         <h2 style="font-size:20px;margin-bottom:4px">Pedido Confirmado! 🎉</h2>
@@ -70,7 +70,7 @@ export class EmailService {
 
         <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
         <p style="font-size:12px;color:#94a3b8;text-align:center">
-          E-3D Print — Impressões 3D Premium<br>
+          WB Maker — Impressões 3D Premium<br>
           Dúvidas? Responda este e-mail.
         </p>
       </div>
@@ -80,7 +80,7 @@ export class EmailService {
       await this.resend.emails.send({
         from: this.from,
         to: params.to,
-        subject: `✅ Pedido ${params.orderNumber} confirmado — E-3D Print`,
+        subject: `✅ Pedido ${params.orderNumber} confirmado — WB Maker`,
         html,
       });
       this.logger.log(`Email de confirmação enviado para ${params.to}`);
@@ -100,7 +100,7 @@ export class EmailService {
 
     const html = `
       <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#fff">
-        <h1 style="color:#6d28d9;font-size:24px;margin-bottom:8px">E-3D Print</h1>
+        <h1 style="color:#6d28d9;font-size:24px;margin-bottom:8px">WB Maker</h1>
 
         <h2 style="font-size:20px;margin-bottom:4px">Seu pedido foi enviado! 🚀</h2>
         <p style="color:#64748b">Olá, <strong>${params.customerName}</strong>!</p>
@@ -117,7 +117,7 @@ export class EmailService {
         </a>
 
         <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
-        <p style="font-size:12px;color:#94a3b8;text-align:center">E-3D Print — Impressões 3D Premium</p>
+        <p style="font-size:12px;color:#94a3b8;text-align:center">WB Maker — Impressões 3D Premium</p>
       </div>
     `;
 

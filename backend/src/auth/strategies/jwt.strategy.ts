@@ -34,12 +34,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Sessão inválida ou expirada.');
     }
 
+    // Auto-criar Customer para usuários legados que não possuem um
+    let customerId = user.customer?.id ?? null;
+    if (!customerId) {
+      const created = await this.prisma.customer.create({
+        data: { userId: user.id, name: user.name, email: user.email },
+      });
+      customerId = created.id;
+    }
+
     return {
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
-      customerId: user.customer?.id ?? null,
+      customerId,
     };
   }
 }

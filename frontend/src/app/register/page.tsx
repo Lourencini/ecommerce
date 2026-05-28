@@ -74,7 +74,7 @@ export default function RegisterPage() {
       <div className="auth-card">
         <div className="auth-header">
           <h1 className="logo" style={{ justifyContent: 'center', display: 'flex', marginBottom: '0.5rem' }}>
-            E-3D Print
+            WB Maker
           </h1>
           <h2 className="auth-title">Criar conta</h2>
           <p className="auth-subtitle">É rápido e gratuito</p>

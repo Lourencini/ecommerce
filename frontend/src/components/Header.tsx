@@ -29,7 +29,7 @@ export function Header() {
     <nav className="navbar">
       <div className="container">
         {/* Logo */}
-        <Link href="/" className="logo">E-3D Print</Link>
+        <Link href="/" className="logo">WB Maker</Link>
 
         {/* Links centrais */}
         <ul className="nav-links">

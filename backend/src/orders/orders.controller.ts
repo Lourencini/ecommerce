@@ -5,6 +5,7 @@ import {
   Body,
   Patch,
   Param,
+  Query,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -50,9 +51,23 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: '[ADMIN] Listar todos os pedidos' })
-  findAll() {
-    return this.ordersService.findAll();
+  @ApiOperation({ summary: '[ADMIN] Listar todos os pedidos (paginado + filtros)' })
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+  ) {
+    return this.ordersService.findAll({
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      status,
+      search,
+      dateFrom,
+      dateTo,
+    });
   }
 
   @Get('metrics/cycle-time')

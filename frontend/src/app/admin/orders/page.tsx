@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, Fragment, useRef } from 'react';
 import { API_URL } from '@/lib/api';
 import { useAdminToken } from '@/hooks/useAdminToken';
 
@@ -32,24 +32,53 @@ interface TrackingModal {
   currentTracking?: string;
 }
 
+const LIMIT = 15;
+
 export default function AdminOrdersPage() {
   const { status, authFetch } = useAdminToken();
-  const [orders, setOrders]   = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState<string | null>(null);
-  const [error, setError] = useState('');
+
+  const [orders, setOrders]             = useState<any[]>([]);
+  const [total, setTotal]               = useState(0);
+  const [pages, setPages]               = useState(1);
+  const [page, setPage]                 = useState(1);
+  const [loading, setLoading]           = useState(true);
+  const [updating, setUpdating]         = useState<string | null>(null);
+  const [error, setError]               = useState('');
+  const [expandedId, setExpandedId]     = useState<string | null>(null);
   const [trackingModal, setTrackingModal] = useState<TrackingModal | null>(null);
   const [trackingCode, setTrackingCode] = useState('');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const fetchOrders = async () => {
+  // Filters
+  const [search, setSearch]               = useState('');
+  const [statusFilter, setStatusFilter]   = useState('');
+  const [dateFrom, setDateFrom]           = useState('');
+  const [dateTo, setDateTo]               = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
+  }, [search]);
+
+  const doFetch = async (targetPage: number) => {
     setError('');
+    setLoading(true);
     try {
-      const res = await authFetch(`${API_URL}/orders?limit=100`);
+      const params = new URLSearchParams({ page: String(targetPage), limit: String(LIMIT) });
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      if (statusFilter)   params.set('status', statusFilter);
+      if (dateFrom)       params.set('dateFrom', dateFrom);
+      if (dateTo)         params.set('dateTo', dateTo);
+
+      const res = await authFetch(`${API_URL}/orders?${params}`);
       if (!res.ok) throw new Error(`Erro ${res.status}`);
       const data = await res.json();
-      const list = Array.isArray(data) ? data : (data?.data ?? data?.items ?? []);
-      setOrders(list);
+
+      setOrders(Array.isArray(data) ? data : (data?.data ?? []));
+      setTotal(data?.total ?? 0);
+      setPages(data?.pages ?? 1);
     } catch (e: any) {
       if (!e.message.includes('Sessão expirada')) setError(e.message);
     } finally {
@@ -59,17 +88,19 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     if (status !== 'authenticated') return;
-    fetchOrders();
+    setPage(1);
+    doFetch(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
+  }, [status, debouncedSearch, statusFilter, dateFrom, dateTo]);
+
+  const handlePageChange = (p: number) => {
+    setPage(p);
+    doFetch(p);
+  };
 
   const handleStatusChange = async (orderId: string, newStatus: string, order: any) => {
     if (newStatus === 'SHIPPED') {
-      setTrackingModal({
-        orderId,
-        orderNumber: order.orderNumber,
-        currentTracking: order.trackingCode || '',
-      });
+      setTrackingModal({ orderId, orderNumber: order.orderNumber, currentTracking: order.trackingCode || '' });
       setTrackingCode(order.trackingCode || '');
       return;
     }
@@ -94,7 +125,7 @@ export default function AdminOrdersPage() {
           body: JSON.stringify({ trackingCode: tracking }),
         });
       }
-      await fetchOrders();
+      await doFetch(page);
     } catch (e: any) {
       if (!e.message.includes('Sessão expirada')) console.error(e);
     } finally {
@@ -116,7 +147,7 @@ export default function AdminOrdersPage() {
         method: 'PATCH',
         body: JSON.stringify({ trackingCode: tracking }),
       });
-      if (res.ok) await fetchOrders();
+      if (res.ok) await doFetch(page);
     } catch (e: any) {
       if (!e.message.includes('Sessão expirada')) console.error(e);
     } finally {
@@ -124,9 +155,12 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const hasFilters = !!(search || statusFilter || dateFrom || dateTo);
+
   if (status === 'loading' || loading) return (
     <div>
       <div className="skeleton-title" style={{ width: 300, marginBottom: '1.5rem' }} />
+      <div className="skeleton" style={{ height: 56, borderRadius: 'var(--radius-lg)', marginBottom: '1rem' }} />
       <div className="skeleton" style={{ height: 400, borderRadius: 'var(--radius-lg)' }} />
     </div>
   );
@@ -137,15 +171,107 @@ export default function AdminOrdersPage() {
     </div>
   );
 
+  const filterStyle = {
+    input: {
+      padding: '0.45rem 0.75rem',
+      background: 'var(--bg-color)',
+      border: '1px solid var(--border-color)',
+      borderRadius: 'var(--radius-md)',
+      color: 'var(--text-main)',
+      fontSize: '0.875rem',
+      colorScheme: 'dark',
+    } as React.CSSProperties,
+  };
+
+  // Pagination helpers
+  const pageNumbers: (number | '…')[] = [];
+  for (let i = 1; i <= pages; i++) {
+    if (i === 1 || i === pages || Math.abs(i - page) <= 1) {
+      pageNumbers.push(i);
+    } else if (pageNumbers[pageNumbers.length - 1] !== '…') {
+      pageNumbers.push('…');
+    }
+  }
+
   return (
     <div>
+      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-        <h2>Esteira de Produção</h2>
-        <button className="btn-secondary" onClick={fetchOrders} style={{ fontSize: '0.85rem' }}>
+        <div>
+          <h2 style={{ marginBottom: '0.15rem' }}>Esteira de Produção</h2>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-3)' }}>
+            {total} pedido{total !== 1 ? 's' : ''} encontrado{total !== 1 ? 's' : ''}
+          </span>
+        </div>
+        <button className="btn-secondary" onClick={() => doFetch(page)} style={{ fontSize: '0.85rem' }}>
           ↻ Atualizar
         </button>
       </div>
 
+      {/* Filter Bar */}
+      <div style={{
+        display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center',
+        marginBottom: '1.25rem',
+        padding: '0.875rem 1rem',
+        background: 'var(--surface-color)',
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--border-color)',
+      }}>
+        <input
+          type="text"
+          placeholder="Buscar por número ou cliente…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ ...filterStyle.input, flex: '1', minWidth: 180 }}
+        />
+
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          style={{
+            ...filterStyle.input,
+            cursor: 'pointer',
+            color: statusFilter ? STATUS_COLORS[statusFilter] ?? 'var(--text-main)' : 'var(--text-muted)',
+          }}
+        >
+          <option value="">Todos os status</option>
+          {Object.entries(STATUS_LABELS).map(([val, label]) => (
+            <option key={val} value={val}>{label}</option>
+          ))}
+        </select>
+
+        <input
+          type="date"
+          value={dateFrom}
+          onChange={e => setDateFrom(e.target.value)}
+          style={filterStyle.input}
+          title="De"
+        />
+        <span style={{ color: 'var(--text-3)', fontSize: '0.8rem' }}>até</span>
+        <input
+          type="date"
+          value={dateTo}
+          onChange={e => setDateTo(e.target.value)}
+          style={filterStyle.input}
+          title="Até"
+        />
+
+        {hasFilters && (
+          <button
+            onClick={() => { setSearch(''); setStatusFilter(''); setDateFrom(''); setDateTo(''); }}
+            style={{
+              padding: '0.35rem 0.65rem', fontSize: '0.78rem',
+              color: 'var(--text-3)', background: 'none',
+              border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)',
+              cursor: 'pointer',
+            }}
+          >
+            ✕ Limpar
+          </button>
+        )}
+      </div>
+
+      {/* Table */}
       {orders.length === 0 ? (
         <div className="empty-state">Nenhum pedido encontrado.</div>
       ) : (
@@ -245,7 +371,7 @@ export default function AdminOrdersPage() {
                   </tr>
 
                   {expandedId === o.id && (
-                    <tr style={{ background: 'var(--surface-2, #EBE8E0)' }}>
+                    <tr style={{ background: 'var(--surface-2, rgba(255,255,255,0.03))' }}>
                       <td colSpan={8} style={{ padding: '0.75rem 1.5rem' }}>
                         <div style={{ fontSize: '0.85rem' }}>
                           <strong style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>
@@ -257,7 +383,7 @@ export default function AdminOrdersPage() {
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                               <thead>
                                 <tr>
-                                  {['Produto','SKU','Qtd','Subtotal'].map(h => (
+                                  {['Produto', 'SKU', 'Qtd', 'Subtotal'].map(h => (
                                     <th key={h} style={{ textAlign: h === 'Qtd' || h === 'Subtotal' ? 'right' : 'left', paddingRight: '2rem', fontWeight: 600, color: 'var(--text-muted)', paddingBottom: '0.25rem' }}>{h}</th>
                                   ))}
                                 </tr>
@@ -290,6 +416,40 @@ export default function AdminOrdersPage() {
         </div>
       )}
 
+      {/* Pagination */}
+      {pages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.35rem', marginTop: '1.25rem' }}>
+          <button
+            className="pagination-btn"
+            onClick={() => handlePageChange(page - 1)}
+            disabled={page <= 1}
+          >
+            ←
+          </button>
+          {pageNumbers.map((p, i) =>
+            p === '…' ? (
+              <span key={`gap-${i}`} style={{ padding: '0 0.25rem', color: 'var(--text-3)', fontSize: '0.85rem' }}>…</span>
+            ) : (
+              <button
+                key={p}
+                className={`pagination-btn${page === p ? ' active' : ''}`}
+                onClick={() => handlePageChange(p as number)}
+              >
+                {p}
+              </button>
+            )
+          )}
+          <button
+            className="pagination-btn"
+            onClick={() => handlePageChange(page + 1)}
+            disabled={page >= pages}
+          >
+            →
+          </button>
+        </div>
+      )}
+
+      {/* Tracking Modal */}
       {trackingModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
           <div style={{ background: 'var(--bg)', padding: '2rem', borderRadius: 'var(--radius-lg)', maxWidth: '420px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>

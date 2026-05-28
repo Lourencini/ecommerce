@@ -8,6 +8,7 @@ import {
   Param,
   ParseIntPipe,
   UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CustomersService } from './customers.service';
@@ -23,10 +24,17 @@ import { CurrentUser, CurrentUserData } from '../auth/decorators/current-user.de
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
+  private requireCustomer(user: CurrentUserData): string {
+    if (!user.customerId) {
+      throw new ForbiddenException('Este usuário não possui perfil de cliente.');
+    }
+    return user.customerId;
+  }
+
   @Get('me')
   @ApiOperation({ summary: 'Dados do cliente logado' })
   getMe(@CurrentUser() user: CurrentUserData) {
-    return this.customersService.getMe(user.customerId!);
+    return this.customersService.getMe(this.requireCustomer(user));
   }
 
   @Patch('me')
@@ -35,19 +43,19 @@ export class CustomersController {
     @CurrentUser() user: CurrentUserData,
     @Body() dto: UpdateCustomerDto,
   ) {
-    return this.customersService.updateMe(user.customerId!, dto);
+    return this.customersService.updateMe(this.requireCustomer(user), dto);
   }
 
   @Get('me/orders')
   @ApiOperation({ summary: 'Pedidos do cliente logado' })
   getMyOrders(@CurrentUser() user: CurrentUserData) {
-    return this.customersService.getMyOrders(user.customerId!);
+    return this.customersService.getMyOrders(this.requireCustomer(user));
   }
 
   @Get('me/addresses')
   @ApiOperation({ summary: 'Endereços do cliente logado' })
   getAddresses(@CurrentUser() user: CurrentUserData) {
-    return this.customersService.getAddresses(user.customerId!);
+    return this.customersService.getAddresses(this.requireCustomer(user));
   }
 
   @Post('me/addresses')
@@ -56,7 +64,7 @@ export class CustomersController {
     @CurrentUser() user: CurrentUserData,
     @Body() dto: CreateAddressDto,
   ) {
-    return this.customersService.addAddress(user.customerId!, dto);
+    return this.customersService.addAddress(this.requireCustomer(user), dto);
   }
 
   @Patch('me/addresses/:id/default')
@@ -65,7 +73,7 @@ export class CustomersController {
     @CurrentUser() user: CurrentUserData,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.customersService.setDefaultAddress(user.customerId!, id);
+    return this.customersService.setDefaultAddress(this.requireCustomer(user), id);
   }
 
   @Delete('me/addresses/:id')
@@ -74,6 +82,6 @@ export class CustomersController {
     @CurrentUser() user: CurrentUserData,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.customersService.deleteAddress(user.customerId!, id);
+    return this.customersService.deleteAddress(this.requireCustomer(user), id);
   }
 }

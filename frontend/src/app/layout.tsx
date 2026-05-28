@@ -29,23 +29,23 @@ const jakarta = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: {
-    default: 'E-3D Print — Impressão 3D Artesanal',
-    template: '%s | E-3D Print',
+    default: 'WB Maker',
+    template: '%s | WB Maker',
   },
   description:
     'Peças únicas em impressão 3D de alta qualidade. PLA, PETG, Resina e mais. Cada objeto feito com cuidado, entregue em todo o Brasil.',
   keywords: ['impressão 3d', 'miniaturas 3d', 'peças 3d', 'pla', 'petg', 'resina', 'comprar online'],
-  authors: [{ name: 'E-3D Print' }],
+  authors: [{ name: 'WB Maker' }],
   openGraph: {
     type: 'website',
     locale: 'pt_BR',
-    siteName: 'E-3D Print',
-    title: 'E-3D Print — Impressão 3D Artesanal',
+    siteName: 'WB Maker',
+    title: 'WB Maker',
     description: 'Peças únicas em impressão 3D. Cada objeto feito com cuidado.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'E-3D Print — Impressão 3D Artesanal',
+    title: 'WB Maker',
     description: 'Peças únicas em impressão 3D de alta qualidade.',
   },
   robots: { index: true, follow: true },
@@ -62,7 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <footer className="site-footer">
             <div className="footer-inner">
               <div className="footer-brand">
-                <span className="footer-logo">E-3D Print</span>
+                <span className="footer-logo">WB Maker</span>
                 <p className="footer-tagline">
                   Impressão 3D feita com cuidado, entregue com qualidade.
                   Cada peça é única — assim como quem pede.
@@ -88,7 +88,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
             </div>
             <div className="footer-bottom">
-              <span>© {new Date().getFullYear()} E-3D Print · Todos os direitos reservados</span>
+              <span>© {new Date().getFullYear()} WB Maker · Todos os direitos reservados</span>
             </div>
           </footer>
         </Providers>

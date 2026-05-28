@@ -22,6 +22,17 @@ async function main() {
 
   console.log('✅ Admin criado — email: admin@e3dprint.com  senha: Admin@123');
 
+  // Garantir que admin também tenha um Customer (necessário para /minha-conta)
+  await prisma.customer.upsert({
+    where: { email: 'admin@e3dprint.com' },
+    update: { userId: adminUser.id },
+    create: {
+      userId: adminUser.id,
+      name: 'Admin',
+      email: 'admin@e3dprint.com',
+    },
+  });
+
   // ── Usuário Cliente de Teste ─────────────────────────────────
   const customerPassword = await bcrypt.hash('Cliente@123', 12);
   const customerUser = await prisma.user.upsert({

@@ -62,8 +62,18 @@ export class PaymentsService {
       );
     }
 
-    const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
-    const apiUrl      = this.config.get<string>('API_URL',      'http://localhost:3001/api/v1');
+    const frontendUrl    = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const apiUrl         = this.config.get<string>('API_URL',      'http://localhost:3001/api/v1');
+    const isSandboxToken = token.startsWith('TEST-');
+    const isLocalhost    = frontendUrl.includes('localhost') || apiUrl.includes('localhost');
+
+    if (!isSandboxToken && isLocalhost) {
+      throw new UnprocessableEntityException(
+        'Token de Produção (APP_USR-) detectado com ambiente local. ' +
+        'Use o token de Sandbox (TEST-...) para testes locais. ' +
+        'No painel do Mercado Pago: Desenvolvimento → Credenciais → aba "Teste" → copie o Access Token.',
+      );
+    }
 
     const nameParts   = order.customer.name.trim().split(/\s+/);
     const payerName   = nameParts[0];

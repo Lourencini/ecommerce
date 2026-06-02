@@ -30,8 +30,9 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Webhook de notificações do MercadoPago (IPN)' })
   handleWebhook(
     @Body() body: any,
-    @Headers('x-signature') signature?: string,
+    @Headers('x-signature')   signature?: string,
+    @Headers('x-request-id')  requestId?: string,
   ) {
-    return this.paymentsService.handleWebhook(body, signature);
+    return this.paymentsService.handleWebhook(body, signature, requestId);
   }
 }

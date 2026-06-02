@@ -9,8 +9,12 @@ import {
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { extname, resolve } from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { mkdirSync } from 'fs';
+
+const UPLOADS_DIR = resolve(process.cwd(), 'uploads', 'products');
+mkdirSync(UPLOADS_DIR, { recursive: true });
 
 @ApiTags('uploads')
 @Controller('uploads')
@@ -20,7 +24,7 @@ export class UploadsController {
     @UseInterceptors(
         FilesInterceptor('files', 10, {
             storage: diskStorage({
-                destination: './uploads/products',
+                destination: UPLOADS_DIR,
                 filename: (req, file, callback) => {
                     const uniqueSuffix = uuidv4();
                     callback(null, `${uniqueSuffix}${extname(file.originalname)}`);

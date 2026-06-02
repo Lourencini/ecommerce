@@ -174,7 +174,7 @@ export class AdminUsersService {
     });
 
     // Sincronizar nome no Customer se alterado
-    if (dto.name && user.customer) {
+    if (dto.name) {
       await this.prisma.customer.updateMany({
         where: { userId: id },
         data: { name: dto.name },

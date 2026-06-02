@@ -75,6 +75,9 @@ export class PaymentsService {
       );
     }
 
+    // auto_return exige back_urls.success acessível publicamente — desabilita em localhost
+    const autoReturn = isLocalhost ? undefined : ('approved' as const);
+
     const nameParts   = order.customer.name.trim().split(/\s+/);
     const payerName   = nameParts[0];
     const payerSurname = nameParts.slice(1).join(' ') || payerName;
@@ -106,8 +109,8 @@ export class PaymentsService {
             failure: `${frontendUrl}/checkout/failure`,
             pending: `${frontendUrl}/checkout/pending`,
           },
-          auto_return: 'approved',
-          notification_url: `${apiUrl}/payments/webhook`,
+          ...(autoReturn && { auto_return: autoReturn }),
+          notification_url: isLocalhost ? undefined : `${apiUrl}/payments/webhook`,
           metadata: { order_id: order.id, order_number: order.orderNumber },
         },
       });

@@ -3,9 +3,22 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useCart } from '@/contexts/CartContext';
+import { useToast } from '@/contexts/ToastContext';
 import { API_URL } from '@/lib/api';
 import type { ShippingOption, ShippingQuote } from '@/types';
 import Link from 'next/link';
+
+// Calcula data estimada de entrega em dias úteis a partir de hoje
+function estimatedDelivery(deadlineDays: number): string {
+  const date = new Date();
+  let added = 0;
+  while (added < deadlineDays) {
+    date.setDate(date.getDate() + 1);
+    const day = date.getDay();
+    if (day !== 0 && day !== 6) added++;
+  }
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
 
 type Step = 'address' | 'shipping' | 'payment';
 
@@ -27,16 +40,20 @@ export default function CheckoutPage() {
   const { data: session } = useSession();
   const { items, subtotal, clearCart } = useCart();
 
+  const { addToast } = useToast();
+
   const [step, setStep] = useState<Step>('address');
   const [address, setAddress] = useState<AddressForm>(EMPTY_ADDRESS);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof AddressForm, string>>>({});
   const [loadingCep, setLoadingCep] = useState(false);
+  const [cepFilled, setCepFilled] = useState(false);
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<ShippingOption | null>(null);
   const [savedQuote, setSavedQuote] = useState<ShippingQuote | null>(null);
   const [loading, setLoading] = useState(false);
+  const [redirectingToMP, setRedirectingToMP] = useState(false);
   const [error, setError] = useState('');
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
-  // ID do endereço salvo pré-carregado (para evitar duplicação ao finalizar)
   const [savedAddressId, setSavedAddressId] = useState<number | null>(null);
 
   const accessToken =
@@ -99,6 +116,8 @@ export default function CheckoutPage() {
           city: data.localidade || prev.city,
           state: data.uf || prev.state,
         }));
+        setCepFilled(true);
+        setFieldErrors(p => ({ ...p, zipCode: '' }));
       }
     } catch {
     } finally {
@@ -106,12 +125,22 @@ export default function CheckoutPage() {
     }
   };
 
+  const validateAddress = (): boolean => {
+    const errors: Partial<Record<keyof AddressForm, string>> = {};
+    if (!address.zipCode || address.zipCode.replace(/\D/g, '').length !== 8)
+      errors.zipCode = 'Informe um CEP válido (8 dígitos)';
+    if (!address.street.trim())        errors.street       = 'Rua obrigatória';
+    if (!address.number.trim())        errors.number       = 'Número obrigatório';
+    if (!address.neighborhood.trim())  errors.neighborhood = 'Bairro obrigatório';
+    if (!address.city.trim())          errors.city         = 'Cidade obrigatória';
+    if (!address.state.trim())         errors.state        = 'Estado obrigatório';
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleAddressSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!address.zipCode || !address.street || !address.number) {
-      setError('Preencha todos os campos obrigatórios.');
-      return;
-    }
+    if (!validateAddress()) return;
 
     setError('');
     setLoading(true);
@@ -223,17 +252,16 @@ export default function CheckoutPage() {
       if (paymentRes.ok) {
         const { initPoint } = await paymentRes.json();
         clearCart();
+        setRedirectingToMP(true);
         window.location.href = initPoint;
       } else {
         const errData = await paymentRes.json().catch(() => ({}));
         const errMsg  = errData?.message as string | undefined;
         clearCart();
-        // Se for erro de config (422) mostra mensagem; caso contrário fallback normal
-        if (paymentRes.status === 422 && errMsg) {
-          setOrderNumber(order.orderNumber);
+        setOrderNumber(order.orderNumber);
+        if (errMsg) {
+          addToast(errMsg, 'warning', 8000);
           setError(errMsg);
-        } else {
-          setOrderNumber(order.orderNumber);
         }
       }
     } catch (err: unknown) {
@@ -276,6 +304,14 @@ export default function CheckoutPage() {
 
   return (
     <div className="checkout-page">
+      {/* Overlay de redirect para MP */}
+      {redirectingToMP && (
+        <div className="checkout-overlay">
+          <div className="checkout-overlay-icon" />
+          <p className="checkout-overlay-text">Abrindo Mercado Pago</p>
+          <p className="checkout-overlay-sub">Você será redirecionado em instantes...</p>
+        </div>
+      )}
       {/* Stepper */}
       <div className="stepper">
         <div className={`stepper-step ${step === 'address' ? 'active' : 'completed'}`}>
@@ -313,27 +349,28 @@ export default function CheckoutPage() {
                     <label className="form-label">CEP *</label>
                     <input
                       type="text"
-                      className="form-input"
+                      className={`form-input${fieldErrors.zipCode ? ' input-invalid' : cepFilled ? ' input-valid' : ''}`}
                       placeholder="00000-000"
                       value={address.zipCode}
-                      onChange={(e) => handleAddressField('zipCode', e.target.value)}
+                      onChange={(e) => { handleAddressField('zipCode', e.target.value); setFieldErrors(p => ({ ...p, zipCode: '' })); }}
                       onBlur={handleCepBlur}
                       maxLength={9}
-                      required
                     />
-                    {loadingCep && <span className="helper-text">Buscando endereço...</span>}
+                    {loadingCep && <span className="helper-text" style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>📍 Buscando endereço...</span>}
+                    {cepFilled && !loadingCep && <span className="helper-text" style={{ fontSize: '0.78rem', color: 'var(--clay)' }}>✓ Endereço preenchido automaticamente</span>}
+                    {fieldErrors.zipCode && <span className="field-error">⚠ {fieldErrors.zipCode}</span>}
                   </div>
 
                   <div className="form-group" style={{ gridColumn: 'span 2' }}>
                     <label className="form-label">Rua *</label>
                     <input
                       type="text"
-                      className="form-input"
+                      className={`form-input${fieldErrors.street ? ' input-invalid' : ''}`}
                       placeholder="Rua das Flores"
                       value={address.street}
-                      onChange={(e) => handleAddressField('street', e.target.value)}
-                      required
+                      onChange={(e) => { handleAddressField('street', e.target.value); setFieldErrors(p => ({ ...p, street: '' })); }}
                     />
+                    {fieldErrors.street && <span className="field-error">⚠ {fieldErrors.street}</span>}
                   </div>
 
                   <div className="form-group">
@@ -416,7 +453,9 @@ export default function CheckoutPage() {
                     onClick={() => setSelectedShipping(opt)}
                   >
                     <span className="carrier">{opt.carrier} — {opt.serviceName}</span>
-                    <span className="text-muted text-sm">{opt.deadlineDays} dias úteis</span>
+                    <span className="text-muted text-sm">
+                      {opt.deadlineDays} dias úteis · chega até <strong>{estimatedDelivery(opt.deadlineDays)}</strong>
+                    </span>
                     <strong className="text-primary">R$ {Number(opt.price).toFixed(2).replace('.', ',')}</strong>
                   </div>
                 ))}

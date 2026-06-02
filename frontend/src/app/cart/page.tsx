@@ -1,12 +1,14 @@
 "use client";
 
 import { useCart } from '@/contexts/CartContext';
+import { useToast } from '@/contexts/ToastContext';
 import Link from 'next/link';
 import Image from 'next/image';
 import { formatImageUrl } from '@/lib/api';
 
 export default function CartPage() {
   const { items, removeFromCart, updateQuantity, totalItems, subtotal } = useCart();
+  const { addToast } = useToast();
 
   if (items.length === 0) {
     return (
@@ -82,7 +84,7 @@ export default function CartPage() {
               <button
                 className="btn btn-danger"
                 style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
-                onClick={() => removeFromCart(item.productId)}
+                onClick={() => { addToast(`"${item.name}" removido do carrinho.`, 'info'); removeFromCart(item.productId); }}
               >
                 Remover
               </button>

@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useCart } from '@/contexts/CartContext';
+import { useToast } from '@/contexts/ToastContext';
 import { API_URL, formatImageUrl } from '@/lib/api';
 
 export function ProductClientDisplay({ product }: { product: any }) {
     const { data: session } = useSession();
     const { addToCart } = useCart();
+    const { addToast } = useToast();
     const [zipCode, setZipCode] = useState('');
     const [shippingOptions, setShippingOptions] = useState<any[]>([]);
     const [loadingShipping, setLoadingShipping] = useState(false);
@@ -63,6 +65,7 @@ export function ProductClientDisplay({ product }: { product: any }) {
             heightCm: Number(product.heightCm),
             imageUrl: imageUrls[activeImageIndex] ? formatImageUrl(imageUrls[activeImageIndex]) : '',
         });
+        addToast(`"${product.name}" adicionado ao carrinho!`, 'success');
         setAdded(true);
         setTimeout(() => setAdded(false), 2000);
     };

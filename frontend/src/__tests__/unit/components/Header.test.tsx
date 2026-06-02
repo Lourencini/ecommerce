@@ -139,9 +139,9 @@ describe('Header', () => {
       vi.mocked(useSession).mockReturnValue({ data: null, status: 'unauthenticated', update: vi.fn() });
     });
 
-    it('exibe logo "E-3D Print"', () => {
+    it('exibe logo "WB Maker"', () => {
       renderHeader();
-      expect(screen.getByText('E-3D Print')).toBeInTheDocument();
+      expect(screen.getByText('WB Maker')).toBeInTheDocument();
     });
 
     it('exibe link "Vitrine"', () => {

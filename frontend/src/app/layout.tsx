@@ -3,6 +3,7 @@ import { Cinzel_Decorative, IM_Fell_English, Plus_Jakarta_Sans } from 'next/font
 import './globals.css';
 import { Providers } from '@/components/Providers';
 import { Header } from '@/components/Header';
+import { FooterAccountLinks } from '@/components/FooterAccountLinks';
 import Link from 'next/link';
 
 const cinzel = Cinzel_Decorative({
@@ -76,9 +77,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
               <div className="footer-col">
                 <h5>Conta</h5>
-                <Link href="/login">Entrar</Link>
-                <Link href="/register">Criar conta</Link>
-                <Link href="/minha-conta">Minha conta</Link>
+                <FooterAccountLinks />
               </div>
               <div className="footer-col">
                 <h5>Ajuda</h5>

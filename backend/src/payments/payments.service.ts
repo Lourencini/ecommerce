@@ -65,21 +65,31 @@ export class PaymentsService {
     const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
     const apiUrl      = this.config.get<string>('API_URL',      'http://localhost:3001/api/v1');
 
+    const nameParts   = order.customer.name.trim().split(/\s+/);
+    const payerName   = nameParts[0];
+    const payerSurname = nameParts.slice(1).join(' ') || payerName;
+
+    const items = order.items.map((item) => ({
+      id:          item.productId,
+      title:       item.productName,
+      quantity:    item.quantity,
+      unit_price:  parseFloat(Number(item.unitPrice).toFixed(2)),
+      currency_id: 'BRL',
+    }));
+
+    this.logger.log(`[MP] Payload → payer: ${JSON.stringify({ name: payerName, surname: payerSurname, email: order.customer.email })}`);
+    this.logger.log(`[MP] Payload → items: ${JSON.stringify(items)}`);
+
     try {
       const preference = new Preference(mp);
       const result = await preference.create({
         body: {
           external_reference: order.id,
-          items: order.items.map((item) => ({
-            id:          item.productId,
-            title:       item.productName,
-            quantity:    item.quantity,
-            unit_price:  Number(item.unitPrice),
-            currency_id: 'BRL',
-          })),
+          items,
           payer: {
-            name:  order.customer.name,
-            email: order.customer.email,
+            name:    payerName,
+            surname: payerSurname,
+            email:   order.customer.email,
           },
           back_urls: {
             success: `${frontendUrl}/checkout/success`,
@@ -103,11 +113,15 @@ export class PaymentsService {
         sandboxInitPoint: result.sandbox_init_point,
       };
     } catch (err: any) {
-      const mpMessage = err?.cause?.message || err?.message || 'Erro desconhecido';
-      this.logger.error(`[MP] Falha ao criar preferência para pedido ${order.orderNumber}: ${mpMessage}`);
-      throw new UnprocessableEntityException(
-        `Erro ao processar pagamento: ${mpMessage}`,
-      );
+      const errInfo = { message: err?.message, status: err?.status, cause: err?.cause };
+      this.logger.error(`[MP] Erro completo: ${JSON.stringify(errInfo)}`);
+
+      const causes = Array.isArray(err?.cause)
+        ? err.cause.map((c: any) => c.description || c.message || JSON.stringify(c)).join(' | ')
+        : (err?.cause?.message ?? err?.cause ?? '');
+
+      const mpMessage = (causes as string) || err?.message || 'Erro desconhecido';
+      throw new UnprocessableEntityException(`Erro ao processar pagamento: ${mpMessage}`);
     }
   }
 

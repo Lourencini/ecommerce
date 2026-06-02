@@ -328,9 +328,9 @@ npx prisma generate 2>&1 | Out-Null
 Write-Ok "Prisma Client gerado"
 
 Write-Info "Sincronizando schema com o banco (prisma db push)..."
-# --force-reset: dropa e recria o schema quando ha colunas NOT NULL sem default
-# O seed restaura os dados logo em seguida, entao nao ha perda real em dev
-$pushOutput = npx prisma db push --force-reset --accept-data-loss 2>&1
+# SEM --force-reset para preservar dados existentes (enderecos, imagens, configuracoes)
+# Use .\start.ps1 -Fresh apenas quando quiser apagar tudo intencionalmente
+$pushOutput = npx prisma db push --accept-data-loss 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Fail "prisma db push falhou. Verifique a DATABASE_URL no backend/.env"
     Write-Info "Saida: $pushOutput"

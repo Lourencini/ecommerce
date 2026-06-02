@@ -2,6 +2,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -53,46 +54,61 @@ export class PaymentsService {
 
     if (!order) throw new NotFoundException('Pedido não encontrado.');
 
-    const { mp } = await this.getMpClient();
+    const { mp, token } = await this.getMpClient();
+
+    if (!token) {
+      throw new UnprocessableEntityException(
+        'Gateway de pagamento não configurado. Configure o Access Token do Mercado Pago no painel admin.',
+      );
+    }
+
     const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
     const apiUrl      = this.config.get<string>('API_URL',      'http://localhost:3001/api/v1');
 
-    const preference = new Preference(mp);
-    const result = await preference.create({
-      body: {
-        external_reference: order.id,
-        items: order.items.map((item) => ({
-          id:         item.productId,
-          title:      item.productName,
-          quantity:   item.quantity,
-          unit_price: Number(item.unitPrice),
-          currency_id: 'BRL',
-        })),
-        payer: {
-          name:  order.customer.name,
-          email: order.customer.email,
+    try {
+      const preference = new Preference(mp);
+      const result = await preference.create({
+        body: {
+          external_reference: order.id,
+          items: order.items.map((item) => ({
+            id:          item.productId,
+            title:       item.productName,
+            quantity:    item.quantity,
+            unit_price:  Number(item.unitPrice),
+            currency_id: 'BRL',
+          })),
+          payer: {
+            name:  order.customer.name,
+            email: order.customer.email,
+          },
+          back_urls: {
+            success: `${frontendUrl}/checkout/success`,
+            failure: `${frontendUrl}/checkout/failure`,
+            pending: `${frontendUrl}/checkout/pending`,
+          },
+          auto_return: 'approved',
+          notification_url: `${apiUrl}/payments/webhook`,
+          metadata: { order_id: order.id, order_number: order.orderNumber },
         },
-        back_urls: {
-          success: `${frontendUrl}/checkout/success`,
-          failure: `${frontendUrl}/checkout/failure`,
-          pending: `${frontendUrl}/checkout/pending`,
-        },
-        auto_return: 'approved',
-        notification_url: `${apiUrl}/payments/webhook`,
-        metadata: { order_id: order.id, order_number: order.orderNumber },
-      },
-    });
+      });
 
-    await this.prisma.order.update({
-      where: { id: orderId },
-      data:  { paymentIntentId: result.id },
-    });
+      await this.prisma.order.update({
+        where: { id: orderId },
+        data:  { paymentIntentId: result.id },
+      });
 
-    return {
-      preferenceId:     result.id,
-      initPoint:        result.init_point,
-      sandboxInitPoint: result.sandbox_init_point,
-    };
+      return {
+        preferenceId:     result.id,
+        initPoint:        result.init_point,
+        sandboxInitPoint: result.sandbox_init_point,
+      };
+    } catch (err: any) {
+      const mpMessage = err?.cause?.message || err?.message || 'Erro desconhecido';
+      this.logger.error(`[MP] Falha ao criar preferência para pedido ${order.orderNumber}: ${mpMessage}`);
+      throw new UnprocessableEntityException(
+        `Erro ao processar pagamento: ${mpMessage}`,
+      );
+    }
   }
 
   async handleWebhook(body: any, signature?: string, requestId?: string) {

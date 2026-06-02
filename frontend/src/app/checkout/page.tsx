@@ -223,11 +223,18 @@ export default function CheckoutPage() {
       if (paymentRes.ok) {
         const { initPoint } = await paymentRes.json();
         clearCart();
-        window.location.href = initPoint; // Redireciona para o MP
+        window.location.href = initPoint;
       } else {
-        // Fallback: pedido criado, mas MP ainda não configurado
+        const errData = await paymentRes.json().catch(() => ({}));
+        const errMsg  = errData?.message as string | undefined;
         clearCart();
-        setOrderNumber(order.orderNumber);
+        // Se for erro de config (422) mostra mensagem; caso contrário fallback normal
+        if (paymentRes.status === 422 && errMsg) {
+          setOrderNumber(order.orderNumber);
+          setError(errMsg);
+        } else {
+          setOrderNumber(order.orderNumber);
+        }
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro ao processar pedido');
